@@ -91,8 +91,9 @@ class DocumentRepository(private val context: Context) {
         _activeTabId.value = newTab.tabId
 
         // Save to Room recent docs
-        val existingCategory = record?.category?.ifBlank { null } ?: existingMetadata?.category ?: ""
-        val existingTags = record?.tags?.ifBlank { null } ?: existingMetadata?.tags ?: ""
+        val existingMetadata = metadataDao.getMetadataForUri(uri.toString())
+        val existingCategory: String = if (!record?.category.isNullOrBlank()) record!!.category else (existingMetadata?.category ?: "")
+        val existingTags: String = if (!record?.tags.isNullOrBlank()) record!!.tags else (existingMetadata?.tags ?: "")
 
         docDao.insertOrUpdateDocument(
             DocumentRecord(
