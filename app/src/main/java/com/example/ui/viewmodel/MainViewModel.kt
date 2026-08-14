@@ -159,15 +159,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun togglePin(uriString: String) {
         viewModelScope.launch {
-            repository.togglePinDocument(uriString)
-            showToast("Updated pinned document status")
+            val isPinned = repository.toggleDocumentPin(Uri.parse(uriString))
+            showToast(if (isPinned) "Document Pinned" else "Document Unpinned")
         }
     }
 
     fun toggleFavorite(uriString: String) {
         viewModelScope.launch {
-            repository.toggleFavoriteDocument(uriString)
-            showToast("Updated favorite status")
+            val isFav = repository.toggleDocumentFavorite(Uri.parse(uriString))
+            showToast(if (isFav) "Added to Favorites" else "Removed from Favorites")
         }
     }
 
