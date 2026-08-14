@@ -66,14 +66,19 @@ import com.example.data.database.FolderRecord
 import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentSortOption
 import com.example.data.model.sortDocuments
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.util.DocumentExportHelper
 import com.example.ui.components.BatchActionBar
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
 import com.example.ui.components.CreateFolderDialog
 import com.example.ui.components.DocumentSortMenu
+import com.example.ui.components.ExportShareDialog
 import com.example.ui.components.FolderCard
 import com.example.ui.components.HighDensityBadge
+import com.example.ui.components.HighDensityCard
 import com.example.ui.components.MoveToFolderDialog
 import com.example.ui.components.TagManagementDialog
 import com.example.ui.components.parseHexColor
@@ -107,6 +112,7 @@ fun LibraryScreen(
     val folders by viewModel.folders.collectAsState()
     val isVaultUnlocked by viewModel.isPrivateVaultUnlocked.collectAsState()
 
+    val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
     var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
@@ -117,6 +123,8 @@ fun LibraryScreen(
     var docToMoveToFolder by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToTag by remember { mutableStateOf<DocumentRecord?>(null) }
+    var docToShare by remember { mutableStateOf<DocumentRecord?>(null) }
+    var showBatchShareDialog by remember { mutableStateOf(false) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
@@ -213,6 +221,48 @@ fun LibraryScreen(
                     viewModel.updateDocumentCategory(doc.uriString, newCat)
                 }
                 docToCategorize = null
+            }
+        )
+    }
+
+    if (showBatchShareDialog && selectedDocUris.isNotEmpty()) {
+        val uris = selectedDocUris.map { Uri.parse(it) }
+        ExportShareDialog(
+            documentCount = uris.size,
+            onDismiss = { showBatchShareDialog = false },
+            onShareDirect = {
+                DocumentExportHelper.shareDocuments(context, uris, "Share Selected Documents")
+                showBatchShareDialog = false
+            },
+            onExportZip = {
+                val zipFile = DocumentExportHelper.createZipArchive(context, uris)
+                if (zipFile != null) {
+                    DocumentExportHelper.shareZipFile(context, zipFile, "Share ZIP Export")
+                } else {
+                    viewModel.showToast("Failed to create ZIP archive")
+                }
+                showBatchShareDialog = false
+            }
+        )
+    }
+
+    if (docToShare != null) {
+        val uris = listOf(Uri.parse(docToShare!!.uriString))
+        ExportShareDialog(
+            documentCount = 1,
+            onDismiss = { docToShare = null },
+            onShareDirect = {
+                DocumentExportHelper.shareDocuments(context, uris, "Share Document")
+                docToShare = null
+            },
+            onExportZip = {
+                val zipFile = DocumentExportHelper.createZipArchive(context, uris, "${docToShare!!.fileName.substringBeforeLast(".")}.zip")
+                if (zipFile != null) {
+                    DocumentExportHelper.shareZipFile(context, zipFile, "Share ZIP Export")
+                } else {
+                    viewModel.showToast("Failed to create ZIP archive")
+                }
+                docToShare = null
             }
         )
     }
@@ -638,6 +688,7 @@ fun LibraryScreen(
                                     }
                                 },
                                 onMoveToFolder = { showBatchMoveDialog = true },
+                                onShare = { showBatchShareDialog = true },
                                 onDelete = { showBatchDeleteDialog = true },
                                 onClose = {
                                     isMultiSelectMode = false
@@ -809,6 +860,16 @@ fun LibraryScreen(
                                                     imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                                     contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
                                                     tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+
+                                            // Export & Share Action
+                                            IconButton(onClick = { docToShare = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Share,
+                                                    contentDescription = "Export & Share",
+                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -1059,6 +1120,16 @@ fun LibraryScreen(
                                                     imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                                     contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
                                                     tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+
+                                            // Export & Share Action
+                                            IconButton(onClick = { docToShare = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Share,
+                                                    contentDescription = "Export & Share",
+                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }

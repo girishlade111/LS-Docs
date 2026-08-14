@@ -95,12 +95,15 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.material.icons.filled.Share
+import com.example.data.util.DocumentExportHelper
 import com.example.ui.components.BatchActionBar
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
 import com.example.ui.components.CreateFolderDialog
 import com.example.ui.components.DocumentSortMenu
+import com.example.ui.components.ExportShareDialog
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.components.MoveToFolderDialog
@@ -298,7 +301,51 @@ fun HomeScreen(
     val selectedDocUris = remember { mutableStateListOf<String>() }
     var showBatchMoveDialog by remember { mutableStateOf(false) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
+    var showBatchShareDialog by remember { mutableStateOf(false) }
+    var docToShare by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToTag by remember { mutableStateOf<DocumentRecord?>(null) }
+
+    if (showBatchShareDialog && selectedDocUris.isNotEmpty()) {
+        val uris = selectedDocUris.map { Uri.parse(it) }
+        ExportShareDialog(
+            documentCount = uris.size,
+            onDismiss = { showBatchShareDialog = false },
+            onShareDirect = {
+                DocumentExportHelper.shareDocuments(context, uris, "Share Selected Documents")
+                showBatchShareDialog = false
+            },
+            onExportZip = {
+                val zipFile = DocumentExportHelper.createZipArchive(context, uris)
+                if (zipFile != null) {
+                    DocumentExportHelper.shareZipFile(context, zipFile, "Share ZIP Export")
+                } else {
+                    viewModel.showToast("Failed to create ZIP archive")
+                }
+                showBatchShareDialog = false
+            }
+        )
+    }
+
+    if (docToShare != null) {
+        val uris = listOf(Uri.parse(docToShare!!.uriString))
+        ExportShareDialog(
+            documentCount = 1,
+            onDismiss = { docToShare = null },
+            onShareDirect = {
+                DocumentExportHelper.shareDocuments(context, uris, "Share Document")
+                docToShare = null
+            },
+            onExportZip = {
+                val zipFile = DocumentExportHelper.createZipArchive(context, uris, "${docToShare!!.fileName.substringBeforeLast(".")}.zip")
+                if (zipFile != null) {
+                    DocumentExportHelper.shareZipFile(context, zipFile, "Share ZIP Export")
+                } else {
+                    viewModel.showToast("Failed to create ZIP archive")
+                }
+                docToShare = null
+            }
+        )
+    }
 
     if (docToTag != null) {
         val allExistingTags = remember(recentDocs) {
@@ -914,6 +961,7 @@ fun HomeScreen(
                         }
                     },
                     onMoveToFolder = { showBatchMoveDialog = true },
+                    onShare = { showBatchShareDialog = true },
                     onDelete = { showBatchDeleteDialog = true },
                     onClose = {
                         isMultiSelectMode = false
@@ -1027,6 +1075,9 @@ fun HomeScreen(
                             },
                             onTagClick = {
                                 docToTag = doc
+                            },
+                            onShareClick = {
+                                docToShare = doc
                             },
                             onClick = {
                                 if (isMultiSelectMode) {
@@ -1237,6 +1288,7 @@ fun DocumentRowItem(
     onFolderClick: (() -> Unit)? = null,
     onCategoryClick: (() -> Unit)? = null,
     onTagClick: (() -> Unit)? = null,
+    onShareClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
@@ -1381,6 +1433,20 @@ fun DocumentRowItem(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = if (isFavorite) "Favorited" else "Favorite",
                             tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                if (onShareClick != null) {
+                    IconButton(
+                        onClick = onShareClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Export & Share",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             modifier = Modifier.size(18.dp)
                         )
                     }

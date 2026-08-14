@@ -94,6 +94,9 @@ import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
 import com.example.ui.components.CreateFolderDialog
 import com.example.ui.components.DocumentSortMenu
+import androidx.compose.material.icons.filled.Share
+import com.example.data.util.DocumentExportHelper
+import com.example.ui.components.ExportShareDialog
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.components.MoveToFolderDialog
@@ -126,8 +129,10 @@ fun BrowseScreen(
     var showDetailsSheet by remember { mutableStateOf(false) }
     var fileToCategorize by remember { mutableStateOf<FileDetails?>(null) }
     var fileToTag by remember { mutableStateOf<FileDetails?>(null) }
+    var fileToShare by remember { mutableStateOf<FileDetails?>(null) }
     var fileToMoveToFolder by remember { mutableStateOf<FileDetails?>(null) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var showBatchShareDialog by remember { mutableStateOf(false) }
 
     if (showCreateFolderDialog) {
         CreateFolderDialog(
@@ -135,6 +140,48 @@ fun BrowseScreen(
             onConfirm = { name, desc, colorHex ->
                 viewModel.createFolder(name, desc, colorHex)
                 showCreateFolderDialog = false
+            }
+        )
+    }
+
+    if (showBatchShareDialog && selectedFilePaths.isNotEmpty()) {
+        val uris = selectedFilePaths.mapNotNull { path -> sampleFiles.find { it.path == path }?.uri }
+        ExportShareDialog(
+            documentCount = uris.size,
+            onDismiss = { showBatchShareDialog = false },
+            onShareDirect = {
+                DocumentExportHelper.shareDocuments(context, uris, "Share Selected Files")
+                showBatchShareDialog = false
+            },
+            onExportZip = {
+                val zipFile = DocumentExportHelper.createZipArchive(context, uris)
+                if (zipFile != null) {
+                    DocumentExportHelper.shareZipFile(context, zipFile, "Share ZIP Export")
+                } else {
+                    viewModel.showToast("Failed to create ZIP archive")
+                }
+                showBatchShareDialog = false
+            }
+        )
+    }
+
+    if (fileToShare != null) {
+        val uris = listOf(fileToShare!!.uri)
+        ExportShareDialog(
+            documentCount = 1,
+            onDismiss = { fileToShare = null },
+            onShareDirect = {
+                DocumentExportHelper.shareDocuments(context, uris, "Share File")
+                fileToShare = null
+            },
+            onExportZip = {
+                val zipFile = DocumentExportHelper.createZipArchive(context, uris, "${fileToShare!!.name.substringBeforeLast(".")}.zip")
+                if (zipFile != null) {
+                    DocumentExportHelper.shareZipFile(context, zipFile, "Share ZIP Export")
+                } else {
+                    viewModel.showToast("Failed to create ZIP archive")
+                }
+                fileToShare = null
             }
         )
     }
@@ -315,6 +362,17 @@ fun BrowseScreen(
                                 }
                             }) {
                                 Icon(Icons.Default.SelectAll, contentDescription = "Select All")
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (selectedFilePaths.isNotEmpty()) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        showBatchShareDialog = true
+                                    }
+                                },
+                                enabled = selectedFilePaths.isNotEmpty()
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = "Batch Share / Export")
                             }
                             IconButton(
                                 onClick = {
@@ -582,6 +640,18 @@ fun BrowseScreen(
                                             Icons.Default.Tag,
                                             contentDescription = "Manage Tags",
                                             tint = if (docTags.isNotBlank()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        fileToShare = file
+                                    }) {
+                                        Icon(
+                                            Icons.Default.Share,
+                                            contentDescription = "Export & Share",
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
