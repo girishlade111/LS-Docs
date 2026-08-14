@@ -110,6 +110,7 @@ fun DocumentWorkspaceScreen(
     val settings by viewModel.settings.collectAsState()
 
     val activeTab = openTabs.find { it.tabId == activeTabId }
+    val activeDocMetadata by viewModel.getDocumentMetadataFlow(activeTab?.uriString ?: "").collectAsState(initial = null)
     var showDetailsPanel by remember { mutableStateOf(false) }
     var showWatermarkSignDialog by remember { mutableStateOf(false) }
 
@@ -204,7 +205,10 @@ fun DocumentWorkspaceScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
                 HighDensityBadge {
                     Text(
                         text = activeTab.fileType.displayName,
@@ -215,11 +219,20 @@ fun DocumentWorkspaceScreen(
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
+                if (!activeDocMetadata?.category.isNullOrBlank()) {
+                    CategoryChip(
+                        category = activeDocMetadata?.category,
+                        size = ChipSize.Small,
+                        onClick = { showDetailsPanel = true }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Text(
                     text = activeTab.fileName,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
