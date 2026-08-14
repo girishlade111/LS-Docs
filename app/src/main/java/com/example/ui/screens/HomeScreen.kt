@@ -474,8 +474,13 @@ fun HomeScreen(
                 }
             } else {
                 items(searchResults) { result ->
+                    val isFav = result.documentRecord?.isFavorite == true || recentDocs.any { it.uriString == result.uri.toString() && it.isFavorite }
                     SearchResultCard(
                         result = result,
+                        isFavorite = isFav,
+                        onFavoriteClick = {
+                            viewModel.toggleFavorite(result.uri.toString())
+                        },
                         onClick = {
                             viewModel.openDocument(result.uri)
                             onNavigateToWorkspace()
