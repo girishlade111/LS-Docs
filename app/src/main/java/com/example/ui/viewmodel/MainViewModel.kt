@@ -10,6 +10,7 @@ import com.example.data.database.BookmarkRecord
 import com.example.data.database.ConversionRecord
 import com.example.data.database.DocumentMetadataRecord
 import com.example.data.database.DocumentRecord
+import com.example.data.database.FolderRecord
 import com.example.data.database.OcrRecord
 import com.example.data.model.AppSettings
 import com.example.data.model.DiffResult
@@ -67,6 +68,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allDocumentMetadata: StateFlow<List<DocumentMetadataRecord>> = repository.allDocumentMetadata
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val folders: StateFlow<List<FolderRecord>> = repository.allFolders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val openTabs: StateFlow<List<OpenTab>> = repository.openTabs
@@ -297,6 +301,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.updateDocumentCategory(uriString, category)
             showToast(if (category.isNotBlank()) "Labeled as \"$category\"" else "Category cleared")
+        }
+    }
+
+    fun createFolder(name: String, description: String = "", colorHex: String = "#6750A4") {
+        viewModelScope.launch {
+            repository.createFolder(name, description, colorHex)
+            showToast("Folder \"$name\" created")
+        }
+    }
+
+    fun updateFolder(folder: FolderRecord) {
+        viewModelScope.launch {
+            repository.updateFolder(folder)
+            showToast("Folder updated")
+        }
+    }
+
+    fun deleteFolder(folderId: String, folderName: String) {
+        viewModelScope.launch {
+            repository.deleteFolder(folderId)
+            showToast("Folder \"$folderName\" removed (documents unassigned)")
+        }
+    }
+
+    fun togglePinFolder(folderId: String) {
+        viewModelScope.launch {
+            repository.togglePinFolder(folderId)
+        }
+    }
+
+    fun moveDocumentToFolder(uriString: String, folderId: String, folderName: String) {
+        viewModelScope.launch {
+            repository.moveDocumentToFolder(uriString, folderId, folderName)
+            showToast(if (folderName.isNotBlank()) "Moved to \"$folderName\"" else "Removed from folder")
+        }
+    }
+
+    fun moveMultipleDocumentsToFolder(uriStrings: List<String>, folderId: String, folderName: String) {
+        viewModelScope.launch {
+            repository.moveMultipleDocumentsToFolder(uriStrings, folderId, folderName)
+            showToast("Moved ${uriStrings.size} items to \"$folderName\"")
+        }
+    }
+
+    fun removeDocumentFromFolder(uriString: String) {
+        viewModelScope.launch {
+            repository.removeDocumentFromFolder(uriString)
+            showToast("Removed from folder")
         }
     }
 }

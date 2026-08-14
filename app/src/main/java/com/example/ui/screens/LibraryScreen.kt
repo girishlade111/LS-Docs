@@ -1,7 +1,6 @@
-package com.example.ui.screens
-
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -21,16 +20,24 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,14 +47,19 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import com.example.data.database.DocumentRecord
+import com.example.data.database.FolderRecord
 import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentSortOption
 import com.example.data.model.sortDocuments
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
+import com.example.ui.components.CreateFolderDialog
 import com.example.ui.components.DocumentSortMenu
+import com.example.ui.components.FolderCard
 import com.example.ui.components.HighDensityBadge
+import com.example.ui.components.MoveToFolderDialog
+import com.example.ui.components.parseHexColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -75,15 +87,104 @@ fun LibraryScreen(
     val annotations by viewModel.annotations.collectAsState()
     val privateDocs by viewModel.privateDocuments.collectAsState()
     val allMetadata by viewModel.allDocumentMetadata.collectAsState()
+    val folders by viewModel.folders.collectAsState()
     val isVaultUnlocked by viewModel.isPrivateVaultUnlocked.collectAsState()
 
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
     var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
+    var selectedFolderId by remember { mutableStateOf<String?>(null) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var folderToEdit by remember { mutableStateOf<FolderRecord?>(null) }
+    var folderToDelete by remember { mutableStateOf<FolderRecord?>(null) }
+    var docToMoveToFolder by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
+
+    if (showCreateFolderDialog || folderToEdit != null) {
+        CreateFolderDialog(
+            initialFolder = folderToEdit,
+            onDismiss = {
+                showCreateFolderDialog = false
+                folderToEdit = null
+            },
+            onConfirm = { name, desc, colorHex ->
+                if (folderToEdit != null) {
+                    viewModel.updateFolder(folderToEdit!!.copy(name = name, description = desc, colorHex = colorHex))
+                } else {
+                    viewModel.createFolder(name, desc, colorHex)
+                }
+                showCreateFolderDialog = false
+                folderToEdit = null
+            }
+        )
+    }
+
+    if (docToMoveToFolder != null) {
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = docToMoveToFolder?.folderId,
+            onDismiss = { docToMoveToFolder = null },
+            onCreateNewFolder = {
+                showCreateFolderDialog = true
+            },
+            onFolderSelected = { fId, fName ->
+                docToMoveToFolder?.let { doc ->
+                    viewModel.moveDocumentToFolder(doc.uriString, fId, fName)
+                }
+                docToMoveToFolder = null
+            }
+        )
+    }
+
+    if (folderToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { folderToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete Folder \"${folderToDelete?.name}\"?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this folder? All contained documents will be safely preserved in your library root.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        folderToDelete?.let { f ->
+                            if (selectedFolderId == f.id) selectedFolderId = null
+                            viewModel.deleteFolder(f.id, f.name)
+                        }
+                        folderToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Folder", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { folderToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     if (docToCategorize != null) {
         CategoryPickerDialog(
@@ -144,7 +245,7 @@ fun LibraryScreen(
         )
     }
 
-    val tabs = listOf("Categories", "Bookmarks", "Annotations", "Private Vault")
+    val tabs = listOf("Folders & Labels", "Bookmarks", "Annotations", "Private Vault")
 
     Column(
         modifier = Modifier
