@@ -66,7 +66,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FilterChip
@@ -74,7 +76,11 @@ import androidx.compose.material3.OutlinedTextField
 import com.example.data.util.AesEncryptionHelper
 import com.example.data.util.FileHelper
 import com.example.data.database.DocumentRecord
+import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentFileType
+import com.example.ui.components.CategoryChip
+import com.example.ui.components.CategoryPickerDialog
+import com.example.ui.components.ChipSize
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.theme.DensityGreen
@@ -105,6 +111,21 @@ fun HomeScreen(
     val recentDocs by viewModel.recentDocuments.collectAsState()
     val sampleFiles by viewModel.sampleFiles.collectAsState()
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
+    var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
+    var selectedRecentCategory by remember { mutableStateOf<String?>(null) }
+
+    if (docToCategorize != null) {
+        CategoryPickerDialog(
+            currentCategory = docToCategorize?.category,
+            onDismiss = { docToCategorize = null },
+            onCategorySelected = { newCat ->
+                docToCategorize?.let { doc ->
+                    viewModel.updateDocumentCategory(doc.uriString, newCat)
+                }
+                docToCategorize = null
+            }
+        )
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedSearchScope by remember { mutableStateOf("All") }
