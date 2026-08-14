@@ -892,6 +892,8 @@ fun HomeScreen(
 @Composable
 fun SearchResultCard(
     result: HomeScreenSearchResult,
+    isFavorite: Boolean = false,
+    onFavoriteClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null,
     onCategorize: (() -> Unit)? = null
@@ -956,8 +958,25 @@ fun SearchResultCard(
                     }
                 }
 
+                if (onFavoriteClick != null) {
+                    IconButton(
+                        onClick = onFavoriteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Favorited" else "Favorite",
+                            tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
                 if (onDelete != null) {
-                    IconButton(onClick = onDelete) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Record",
