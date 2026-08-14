@@ -603,6 +603,7 @@ fun DocumentDetailsDialog(
     var editedTitle by remember(roomMetadata) { mutableStateOf(roomMetadata?.title ?: activeTab.fileName) }
     var editedAuthor by remember(roomMetadata) { mutableStateOf(roomMetadata?.author ?: "") }
     var editedDescription by remember(roomMetadata) { mutableStateOf(roomMetadata?.description ?: "") }
+    var editedCategory by remember(roomMetadata) { mutableStateOf(roomMetadata?.category ?: "") }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     if (showDeleteConfirmation) {
@@ -660,6 +661,42 @@ fun DocumentDetailsDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Category Selection Chips in Edit Mode
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Category / Label",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            DocumentCategory.getCategoryNames().forEach { catName ->
+                                val isSelected = editedCategory.equals(catName, ignoreCase = true)
+                                CategoryChip(
+                                    category = catName,
+                                    isSelected = isSelected,
+                                    size = ChipSize.Small,
+                                    onClick = {
+                                        editedCategory = if (isSelected) "" else catName
+                                    }
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = editedCategory,
+                            onValueChange = { editedCategory = it },
+                            label = { Text("Category (Preset or Custom)") },
+                            placeholder = { Text("e.g. Work, Personal, Invoices") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     OutlinedTextField(
                         value = editedAuthor,
                         onValueChange = { editedAuthor = it },
@@ -675,6 +712,24 @@ fun DocumentDetailsDialog(
                     )
                 } else {
                     MetadataItem(label = "Title", value = roomMetadata?.title.takeUnless { it.isNullOrBlank() } ?: activeTab.fileName)
+
+                    // Category Color Chip Row
+                    Column {
+                        Text(text = "Category / Label", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            CategoryChip(
+                                category = roomMetadata?.category,
+                                size = ChipSize.Medium,
+                                onClick = { isEditingMetadata = true }
+                            )
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+
                     MetadataItem(label = "Format / File Type", value = "${activeTab.fileType.displayName} (${roomMetadata?.fileType ?: activeTab.fileType.name})")
                     MetadataItem(label = "File Size", value = formattedSize)
                     MetadataItem(label = "Creation Date (Room)", value = creationDateFormatted)
@@ -712,9 +767,11 @@ fun DocumentDetailsDialog(
                             characterCount = charCount,
                             lineCount = lineCount,
                             author = editedAuthor,
-                            description = editedDescription
+                            description = editedDescription,
+                            category = editedCategory
                         )
                         viewModel.saveDocumentMetadata(recordToSave)
+                        viewModel.updateDocumentCategory(activeTab.uriString, editedCategory)
                         isEditingMetadata = false
                     }
                 ) {
