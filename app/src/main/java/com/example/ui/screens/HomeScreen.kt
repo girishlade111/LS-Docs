@@ -787,6 +787,7 @@ fun HomeScreen(
     }
 }
 }
+}
 
 @Composable
 fun SearchResultCard(
