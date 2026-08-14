@@ -81,10 +81,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DocumentCategory
+import com.example.data.model.DocumentSortOption
 import com.example.data.model.FileDetails
+import com.example.data.model.sortFiles
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
+import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.viewmodel.MainViewModel
@@ -109,6 +112,7 @@ fun BrowseScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedTagFilter by remember { mutableStateOf<String?>(null) }
+    var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
     var selectedFileForDetails by remember { mutableStateOf<FileDetails?>(null) }
     var showDetailsSheet by remember { mutableStateOf(false) }
     var fileToCategorize by remember { mutableStateOf<FileDetails?>(null) }
@@ -158,7 +162,7 @@ fun BrowseScreen(
         }
     }
 
-    val filteredFiles = remember(sampleFiles, searchQuery, selectedTagFilter, docCategoryMap) {
+    val filteredFiles = remember(sampleFiles, searchQuery, selectedTagFilter, docCategoryMap, selectedSortOption, recentDocs) {
         sampleFiles.filter { file ->
             val matchesFilename = file.name.contains(searchQuery, ignoreCase = true) || file.extension.contains(searchQuery, ignoreCase = true)
             val fileContent = try { com.example.data.util.FileHelper.readTextFromUri(context, file.uri) } catch (e: Exception) { "" }
@@ -169,7 +173,7 @@ fun BrowseScreen(
                     fileCat.equals(selectedTagFilter, ignoreCase = true) ||
                     file.path.contains(selectedTagFilter!!, ignoreCase = true)
             matchesSearch && matchesTag
-        }
+        }.sortFiles(selectedSortOption, recentDocs)
     }
 
     Column(
@@ -364,14 +368,23 @@ fun BrowseScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 0.8.sp
                 )
-                HighDensityBadge {
-                    Text(
-                        text = "${filteredFiles.size} items",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DocumentSortMenu(
+                        selectedOption = selectedSortOption,
+                        onOptionSelected = { selectedSortOption = it }
                     )
+                    HighDensityBadge {
+                        Text(
+                            text = "${filteredFiles.size} items",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
