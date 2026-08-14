@@ -248,16 +248,39 @@ fun HomeScreen(
     if (docToDelete != null) {
         AlertDialog(
             onDismissRequest = { docToDelete = null },
-            title = { Text("Delete Document Record?") },
-            text = { Text("Are you sure you want to permanently remove \"${docToDelete?.fileName}\" record from the local database? This action cannot be undone.") },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete Document Record?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently remove \"${docToDelete?.fileName}\" from your local database? This action cannot be undone and will delete all stored bookmarks, metadata, and reading progress.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         docToDelete?.let { viewModel.deleteDocumentRecord(it.uriString) }
                         docToDelete = null
-                    }
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    Text("Delete Record", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
