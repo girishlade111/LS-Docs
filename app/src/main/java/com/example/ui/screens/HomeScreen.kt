@@ -78,9 +78,13 @@ import com.example.data.util.FileHelper
 import com.example.data.database.DocumentRecord
 import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentFileType
+import com.example.data.model.DocumentSortOption
+import com.example.data.model.sortDocuments
+import com.example.data.model.sortFiles
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
+import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.theme.DensityGreen
@@ -113,6 +117,7 @@ fun HomeScreen(
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
     var selectedRecentCategory by remember { mutableStateOf<String?>(null) }
+    var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
 
     if (docToCategorize != null) {
         CategoryPickerDialog(
@@ -663,12 +668,17 @@ fun HomeScreen(
 
         // Recent / Sample Documents
         item {
-            val filteredRecentDocs = remember(recentDocs, selectedRecentCategory) {
-                if (selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All") {
+            val filteredRecentDocs = remember(recentDocs, selectedRecentCategory, selectedSortOption) {
+                val filtered = if (selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All") {
                     recentDocs
                 } else {
                     recentDocs.filter { it.category.equals(selectedRecentCategory, ignoreCase = true) }
                 }
+                filtered.sortDocuments(selectedSortOption)
+            }
+
+            val sortedSampleFiles = remember(sampleFiles, recentDocs, selectedSortOption) {
+                sampleFiles.sortFiles(selectedSortOption, recentDocs)
             }
 
             Row(
@@ -678,18 +688,25 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "RECENT DOCUMENTS",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 0.8.sp
-                )
-                Text(
-                    text = "${filteredRecentDocs.size} / ${recentDocs.size} files",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                Column {
+                    Text(
+                        text = "RECENT DOCUMENTS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = "${filteredRecentDocs.size} / ${recentDocs.size} files",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                DocumentSortMenu(
+                    selectedOption = selectedSortOption,
+                    onOptionSelected = { selectedSortOption = it }
                 )
             }
 
@@ -724,7 +741,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
                     )
-                    sampleFiles.take(5).forEach { file ->
+                    sortedSampleFiles.take(5).forEach { file ->
                         DocumentRowItem(
                             fileName = file.name,
                             fileType = file.fileType.displayName,
