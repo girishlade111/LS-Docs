@@ -663,6 +663,14 @@ fun HomeScreen(
 
         // Recent / Sample Documents
         item {
+            val filteredRecentDocs = remember(recentDocs, selectedRecentCategory) {
+                if (selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All") {
+                    recentDocs
+                } else {
+                    recentDocs.filter { it.category.equals(selectedRecentCategory, ignoreCase = true) }
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -678,12 +686,35 @@ fun HomeScreen(
                     letterSpacing = 0.8.sp
                 )
                 Text(
-                    text = "${recentDocs.size} files",
+                    text = "${filteredRecentDocs.size} / ${recentDocs.size} files",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
+
+            // Category Filter Pills
+            val categoryFilters = remember { listOf("All") + DocumentCategory.getCategoryNames() }
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                items(categoryFilters) { catName ->
+                    val isSelected = (selectedRecentCategory == null && catName == "All") || (selectedRecentCategory == catName)
+                    CategoryChip(
+                        category = if (catName == "All") null else catName,
+                        isSelected = isSelected,
+                        size = ChipSize.Small,
+                        onClick = {
+                            selectedRecentCategory = if (catName == "All") null else catName
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             if (recentDocs.isEmpty() && sampleFiles.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -698,6 +729,7 @@ fun HomeScreen(
                             fileName = file.name,
                             fileType = file.fileType.displayName,
                             progress = 0f,
+                            category = null,
                             onClick = {
                                 viewModel.openDocument(file.uri)
                                 onNavigateToWorkspace()
@@ -712,13 +744,30 @@ fun HomeScreen(
                     onOpenStorage = { filePickerLauncher.launch(arrayOf("*/*")) },
                     onScanOcr = { onNavigateToTools("ocr") }
                 )
+            } else if (filteredRecentDocs.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No documents found in category \"$selectedRecentCategory\"",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    recentDocs.take(5).forEach { doc ->
+                    filteredRecentDocs.take(10).forEach { doc ->
                         DocumentRowItem(
                             fileName = doc.fileName,
                             fileType = doc.extension.uppercase(),
                             progress = doc.readingProgress,
+                            category = doc.category.takeIf { it.isNotBlank() },
+                            onCategoryClick = {
+                                docToCategorize = doc
+                            },
                             onClick = {
                                 try {
                                     viewModel.openDocument(Uri.parse(doc.uriString))
@@ -738,13 +787,13 @@ fun HomeScreen(
     }
 }
 }
-}
 
 @Composable
 fun SearchResultCard(
     result: HomeScreenSearchResult,
     onClick: () -> Unit,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onCategorize: (() -> Unit)? = null
 ) {
     HighDensityCard(
         onClick = onClick,
@@ -783,6 +832,7 @@ fun SearchResultCard(
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(top = 2.dp)
                     ) {
                         if (result.matchedByFilename) {
@@ -794,6 +844,13 @@ fun SearchResultCard(
                             HighDensityBadge(backgroundColor = MaterialTheme.colorScheme.tertiaryContainer) {
                                 Text("Content Match", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                             }
+                        }
+                        if (!result.documentRecord?.category.isNullOrBlank()) {
+                            CategoryChip(
+                                category = result.documentRecord?.category,
+                                size = ChipSize.Small,
+                                onClick = onCategorize
+                            )
                         }
                     }
                 }
@@ -883,6 +940,8 @@ fun DocumentRowItem(
     fileName: String,
     fileType: String,
     progress: Float,
+    category: String? = null,
+    onCategoryClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
@@ -915,18 +974,48 @@ fun DocumentRowItem(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = fileName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Local Document",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = fileName,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Text(
+                        text = "Local Document",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (!category.isNullOrBlank()) {
+                        CategoryChip(
+                            category = category,
+                            size = ChipSize.Small,
+                            onClick = onCategoryClick
+                        )
+                    } else if (onCategoryClick != null) {
+                        CategoryChip(
+                            category = "+ Label",
+                            size = ChipSize.Small,
+                            showIcon = false,
+                            onClick = onCategoryClick
+                        )
+                    }
+                }
+
                 if (progress > 0) {
                     Spacer(modifier = Modifier.height(4.dp))
                     LinearProgressIndicator(
@@ -941,12 +1030,24 @@ fun DocumentRowItem(
                 }
             }
 
+            if (onCategoryClick != null && category == null) {
+                IconButton(onClick = onCategoryClick) {
+                    Icon(
+                        imageVector = Icons.Default.Label,
+                        contentDescription = "Label Category",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
             if (onDelete != null) {
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Record",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
