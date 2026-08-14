@@ -39,6 +39,12 @@ interface DocumentDao {
     @Query("UPDATE document_records SET folderId = '', folderName = '' WHERE folderId = :folderId")
     suspend fun unassignDocumentsFromFolder(folderId: String)
 
+    @Query("UPDATE document_records SET isFavorite = NOT isFavorite WHERE uriString = :uri")
+    suspend fun toggleFavorite(uri: String)
+
+    @Query("UPDATE document_records SET isPinned = NOT isPinned WHERE uriString = :uri")
+    suspend fun togglePin(uri: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateDocument(doc: DocumentRecord)
 
