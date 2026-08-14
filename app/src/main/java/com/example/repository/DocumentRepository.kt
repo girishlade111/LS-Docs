@@ -91,6 +91,9 @@ class DocumentRepository(private val context: Context) {
         _activeTabId.value = newTab.tabId
 
         // Save to Room recent docs
+        val existingCategory = record?.category?.ifBlank { null } ?: existingMetadata?.category ?: ""
+        val existingTags = record?.tags?.ifBlank { null } ?: existingMetadata?.tags ?: ""
+
         docDao.insertOrUpdateDocument(
             DocumentRecord(
                 uriString = uri.toString(),
@@ -105,12 +108,13 @@ class DocumentRepository(private val context: Context) {
                 selectedPage = selectedPage,
                 isPinned = record?.isPinned ?: false,
                 isFavorite = record?.isFavorite ?: false,
-                isPrivate = record?.isPrivate ?: false
+                isPrivate = record?.isPrivate ?: false,
+                category = existingCategory,
+                tags = existingTags
             )
         )
 
         // Save metadata to Room database
-        val existingMetadata = metadataDao.getMetadataForUri(uri.toString())
         val wordCount = rawContent?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() }?.size ?: 0
         val charCount = rawContent?.length ?: 0
         val lineCount = rawContent?.lines()?.size ?: 0
@@ -131,7 +135,9 @@ class DocumentRepository(private val context: Context) {
                 characterCount = charCount,
                 lineCount = lineCount,
                 author = existingMetadata?.author ?: "",
-                description = existingMetadata?.description ?: ""
+                description = existingMetadata?.description ?: "",
+                category = existingCategory,
+                tags = existingTags
             )
         )
 
@@ -146,6 +152,18 @@ class DocumentRepository(private val context: Context) {
 
     suspend fun saveDocumentMetadata(metadata: DocumentMetadataRecord) {
         metadataDao.insertOrUpdateMetadata(metadata)
+        if (metadata.category.isNotEmpty()) {
+            docDao.updateDocumentCategory(metadata.uriString, metadata.category)
+        }
+    }
+
+    suspend fun updateDocumentCategory(uriString: String, category: String) {
+        docDao.updateDocumentCategory(uriString, category)
+        metadataDao.updateCategory(uriString, category)
+    }
+
+    fun getDocumentsByCategory(category: String): Flow<List<DocumentRecord>> {
+        return docDao.getDocumentsByCategory(category)
     }
 
     fun selectTab(tabId: String) {
