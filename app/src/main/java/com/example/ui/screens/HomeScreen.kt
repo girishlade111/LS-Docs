@@ -731,16 +731,21 @@ fun HomeScreen(
         // Recent / Sample Documents
         item {
             val filteredRecentDocs = remember(recentDocs, selectedRecentCategory, selectedSortOption, allMetadata) {
-                val filtered = if (selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All") {
-                    recentDocs
-                } else {
-                    recentDocs.filter { it.category.equals(selectedRecentCategory, ignoreCase = true) }
+                val filtered = when {
+                    selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All" -> recentDocs
+                    selectedRecentCategory == "Favorites" || selectedRecentCategory == "★ Favorites" -> recentDocs.filter { it.isFavorite || it.isPinned }
+                    else -> recentDocs.filter { it.category.equals(selectedRecentCategory, ignoreCase = true) }
                 }
                 filtered.sortDocuments(selectedSortOption, allMetadata)
             }
 
-            val sortedSampleFiles = remember(sampleFiles, recentDocs, selectedSortOption, allMetadata) {
-                sampleFiles.sortFiles(selectedSortOption, recentDocs, allMetadata)
+            val sortedSampleFiles = remember(sampleFiles, recentDocs, selectedSortOption, allMetadata, selectedRecentCategory) {
+                val base = if (selectedRecentCategory == "Favorites" || selectedRecentCategory == "★ Favorites") {
+                    sampleFiles.filter { f -> recentDocs.any { r -> r.uriString == f.uri.toString() && (r.isFavorite || r.isPinned) } }
+                } else {
+                    sampleFiles
+                }
+                base.sortFiles(selectedSortOption, recentDocs, allMetadata)
             }
 
             Row(
@@ -752,7 +757,7 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "RECENT DOCUMENTS",
+                        text = if (selectedRecentCategory == "★ Favorites") "FAVORITE & PINNED DOCUMENTS" else "RECENT DOCUMENTS",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -772,8 +777,8 @@ fun HomeScreen(
                 )
             }
 
-            // Category Filter Pills
-            val categoryFilters = remember { listOf("All") + DocumentCategory.getCategoryNames() }
+            // Category Filter Pills with Favorites
+            val categoryFilters = remember { listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames() }
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
@@ -804,11 +809,16 @@ fun HomeScreen(
                         modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
                     )
                     sortedSampleFiles.take(5).forEach { file ->
+                        val isFav = recentDocs.any { it.uriString == file.uri.toString() && it.isFavorite }
                         DocumentRowItem(
                             fileName = file.name,
                             fileType = file.fileType.displayName,
                             progress = 0f,
                             category = null,
+                            isFavorite = isFav,
+                            onFavoriteClick = {
+                                viewModel.toggleFavorite(file.uri.toString())
+                            },
                             onClick = {
                                 viewModel.openDocument(file.uri)
                                 onNavigateToWorkspace()
@@ -831,7 +841,8 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No documents found in category \"$selectedRecentCategory\"",
+                        text = if (selectedRecentCategory == "★ Favorites") "No favorite documents yet. Tap the heart icon on any document to add it to favorites!"
+                        else "No documents found in category \"$selectedRecentCategory\"",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -847,6 +858,10 @@ fun HomeScreen(
                             category = doc.category.takeIf { it.isNotBlank() },
                             folderName = docFolder?.name,
                             folderColorHex = docFolder?.colorHex,
+                            isFavorite = doc.isFavorite,
+                            onFavoriteClick = {
+                                viewModel.toggleFavorite(doc.uriString)
+                            },
                             onFolderClick = {
                                 docToMoveToFolder = doc
                             },
@@ -1029,6 +1044,8 @@ fun DocumentRowItem(
     category: String? = null,
     folderName: String? = null,
     folderColorHex: String? = null,
+    isFavorite: Boolean = false,
+    onFavoriteClick: (() -> Unit)? = null,
     onFolderClick: (() -> Unit)? = null,
     onCategoryClick: (() -> Unit)? = null,
     onClick: () -> Unit,
@@ -1135,34 +1152,58 @@ fun DocumentRowItem(
                 }
             }
 
+            // Favorite Heart Toggle Button
+            if (onFavoriteClick != null) {
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Favorited" else "Favorite",
+                        tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
             if (onFolderClick != null) {
-                IconButton(onClick = onFolderClick) {
+                IconButton(
+                    onClick = onFolderClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.DriveFileMove,
                         contentDescription = "Move to Folder",
-                        tint = if (!folderName.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        tint = if (!folderName.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
             if (onCategoryClick != null && category == null) {
-                IconButton(onClick = onCategoryClick) {
+                IconButton(
+                    onClick = onCategoryClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Label,
                         contentDescription = "Label Category",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
             if (onDelete != null) {
-                IconButton(onClick = onDelete) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Record",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
