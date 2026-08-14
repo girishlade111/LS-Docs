@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
@@ -79,7 +80,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.DocumentCategory
 import com.example.data.model.FileDetails
+import com.example.ui.components.CategoryChip
+import com.example.ui.components.CategoryPickerDialog
+import com.example.ui.components.ChipSize
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.viewmodel.MainViewModel
@@ -91,12 +96,33 @@ fun BrowseScreen(
     onNavigateToWorkspace: () -> Unit
 ) {
     val sampleFiles by viewModel.sampleFiles.collectAsState()
+    val recentDocs by viewModel.recentDocuments.collectAsState()
+    val metadataList by viewModel.allDocumentMetadata.collectAsState()
     val haptic = LocalHapticFeedback.current
+
+    val docCategoryMap = remember(recentDocs, metadataList) {
+        val map = mutableMapOf<String, String>()
+        recentDocs.forEach { if (it.category.isNotBlank()) map[it.uriString] = it.category }
+        metadataList.forEach { if (it.category.isNotBlank()) map[it.uriString] = it.category }
+        map
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedTagFilter by remember { mutableStateOf<String?>(null) }
     var selectedFileForDetails by remember { mutableStateOf<FileDetails?>(null) }
     var showDetailsSheet by remember { mutableStateOf(false) }
+    var fileToCategorize by remember { mutableStateOf<FileDetails?>(null) }
+
+    if (fileToCategorize != null) {
+        CategoryPickerDialog(
+            currentCategory = docCategoryMap[fileToCategorize!!.uri.toString()],
+            onDismiss = { fileToCategorize = null },
+            onCategorySelected = { newCat ->
+                viewModel.updateDocumentCategory(fileToCategorize!!.uri.toString(), newCat)
+                fileToCategorize = null
+            }
+        )
+    }
 
     // Multi-select state
     var isMultiSelectMode by remember { mutableStateOf(false) }
@@ -109,8 +135,8 @@ fun BrowseScreen(
     // Storage analytics tab state
     var activeTab by remember { mutableStateOf(0) }
 
-    val availableTags = remember(sampleFiles) {
-        listOf("All", "Work", "Personal", "Legal", "Financial", "Project")
+    val availableTags = remember {
+        listOf("All") + DocumentCategory.getCategoryNames()
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -132,13 +158,16 @@ fun BrowseScreen(
         }
     }
 
-    val filteredFiles = remember(sampleFiles, searchQuery, selectedTagFilter) {
+    val filteredFiles = remember(sampleFiles, searchQuery, selectedTagFilter, docCategoryMap) {
         sampleFiles.filter { file ->
             val matchesFilename = file.name.contains(searchQuery, ignoreCase = true) || file.extension.contains(searchQuery, ignoreCase = true)
             val fileContent = try { com.example.data.util.FileHelper.readTextFromUri(context, file.uri) } catch (e: Exception) { "" }
             val matchesContent = fileContent.contains(searchQuery, ignoreCase = true)
             val matchesSearch = searchQuery.isBlank() || matchesFilename || matchesContent
-            val matchesTag = selectedTagFilter == null || selectedTagFilter == "All" || file.path.contains(selectedTagFilter!!, ignoreCase = true)
+            val fileCat = docCategoryMap[file.uri.toString()] ?: ""
+            val matchesTag = selectedTagFilter == null || selectedTagFilter == "All" ||
+                    fileCat.equals(selectedTagFilter, ignoreCase = true) ||
+                    file.path.contains(selectedTagFilter!!, ignoreCase = true)
             matchesSearch && matchesTag
         }
     }
