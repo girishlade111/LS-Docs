@@ -620,6 +620,16 @@ fun LibraryScreen(
                                             }
                                         }
 
+                                        // Favorite Heart Toggle Button
+                                        IconButton(onClick = { viewModel.toggleFavorite(doc.uriString) }) {
+                                            Icon(
+                                                imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                                contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
+                                                tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+
                                         // Move to Folder Action
                                         IconButton(onClick = { docToMoveToFolder = doc }) {
                                             Icon(
@@ -657,6 +667,159 @@ fun LibraryScreen(
                 }
             }
             1 -> {
+                // Dedicated Favorites & Pinned View Tab
+                val favoriteDocs = remember(recentDocs, selectedSortOption, allMetadata) {
+                    recentDocs.filter { it.isFavorite || it.isPinned }.sortDocuments(selectedSortOption, allMetadata)
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "FAVORITE & PINNED DOCUMENTS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 0.8.sp
+                            )
+                            Text(
+                                text = "${favoriteDocs.size} pinned items",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        DocumentSortMenu(
+                            selectedOption = selectedSortOption,
+                            onOptionSelected = { selectedSortOption = it }
+                        )
+                    }
+
+                    if (favoriteDocs.isEmpty()) {
+                        EmptyLibraryState("No favorite documents yet. Tap the heart icon on any document card to pin it to your favorites for instant access!")
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(favoriteDocs) { doc ->
+                                val docFolder = folders.find { it.id == doc.folderId }
+                                HighDensityCard(
+                                    onClick = {
+                                        try {
+                                            viewModel.openDocument(Uri.parse(doc.uriString))
+                                            onNavigateToWorkspace()
+                                        } catch (e: Exception) {
+                                            viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(18.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(14.dp)
+                                            .fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = doc.extension.take(3).uppercase(),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = doc.fileName,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${doc.extension.uppercase()} • ${(doc.fileSize / 1024).coerceAtLeast(1)} KB",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                if (docFolder != null) {
+                                                    val fColor = parseHexColor(docFolder.colorHex)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(fColor.copy(alpha = 0.15f))
+                                                            .clickable { docToMoveToFolder = doc }
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Folder, contentDescription = null, tint = fColor, modifier = Modifier.size(10.dp))
+                                                        Spacer(modifier = Modifier.width(3.dp))
+                                                        Text(docFolder.name, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = fColor)
+                                                    }
+                                                }
+                                                if (doc.category.isNotBlank()) {
+                                                    CategoryChip(
+                                                        category = doc.category,
+                                                        size = ChipSize.Small,
+                                                        onClick = { docToCategorize = doc }
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Favorite Heart Toggle Button
+                                        IconButton(onClick = { viewModel.toggleFavorite(doc.uriString) }) {
+                                            Icon(
+                                                imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                                contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
+                                                tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+
+                                        // Move to Folder Action
+                                        IconButton(onClick = { docToMoveToFolder = doc }) {
+                                            Icon(
+                                                imageVector = Icons.Default.DriveFileMove,
+                                                contentDescription = "Move to Folder",
+                                                tint = if (doc.folderId.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+
+                                        // Delete Record Action
+                                        IconButton(onClick = { docToDelete = doc }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Delete Record",
+                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            2 -> {
                 if (bookmarks.isEmpty()) {
                     EmptyLibraryState("No bookmarks saved yet. Add bookmarks while reading documents!")
                 } else {
@@ -676,7 +839,7 @@ fun LibraryScreen(
                     }
                 }
             }
-            2 -> {
+            3 -> {
                 if (annotations.isEmpty()) {
                     EmptyLibraryState("No annotations found. Highlight text or draw notes inside PDFs & Markdown files!")
                 } else {
@@ -696,7 +859,7 @@ fun LibraryScreen(
                     }
                 }
             }
-            3 -> {
+            4 -> {
                 if (!isVaultUnlocked) {
                     HighDensityCard(shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(
