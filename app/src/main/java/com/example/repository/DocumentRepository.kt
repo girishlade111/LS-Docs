@@ -166,6 +166,11 @@ class DocumentRepository(private val context: Context) {
         metadataDao.updateCategory(uriString, category)
     }
 
+    suspend fun updateDocumentTags(uriString: String, tags: String) {
+        docDao.updateDocumentTags(uriString, tags)
+        metadataDao.updateTags(uriString, tags)
+    }
+
     fun getDocumentsByCategory(category: String): Flow<List<DocumentRecord>> {
         return docDao.getDocumentsByCategory(category)
     }

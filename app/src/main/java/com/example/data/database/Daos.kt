@@ -33,6 +33,9 @@ interface DocumentDao {
     @Query("UPDATE document_records SET category = :category WHERE uriString = :uri")
     suspend fun updateDocumentCategory(uri: String, category: String)
 
+    @Query("UPDATE document_records SET tags = :tags WHERE uriString = :uri")
+    suspend fun updateDocumentTags(uri: String, tags: String)
+
     @Query("UPDATE document_records SET folderId = :folderId, folderName = :folderName WHERE uriString = :uri")
     suspend fun moveDocumentToFolder(uri: String, folderId: String, folderName: String)
 
@@ -164,6 +167,9 @@ interface DocumentMetadataDao {
 
     @Query("UPDATE document_metadata SET category = :category WHERE uriString = :uri")
     suspend fun updateCategory(uri: String, category: String)
+
+    @Query("UPDATE document_metadata SET tags = :tags WHERE uriString = :uri")
+    suspend fun updateTags(uri: String, tags: String)
 
     @Query("DELETE FROM document_metadata WHERE uriString = :uri")
     suspend fun deleteMetadataByUri(uri: String)

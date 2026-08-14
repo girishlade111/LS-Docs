@@ -171,6 +171,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateDocumentCategory(uriString: String, category: String) {
+        viewModelScope.launch {
+            repository.updateDocumentCategory(uriString, category)
+            showToast(if (category.isNotBlank()) "Labeled as \"$category\"" else "Label removed")
+        }
+    }
+
+    fun updateDocumentTags(uriString: String, tags: String) {
+        viewModelScope.launch {
+            repository.updateDocumentTags(uriString, tags)
+            showToast(if (tags.isNotBlank()) "Updated document tags" else "Tags cleared")
+        }
+    }
+
     fun deleteDocumentRecord(uriString: String) {
         viewModelScope.launch {
             repository.deleteDocumentRecord(uriString)
