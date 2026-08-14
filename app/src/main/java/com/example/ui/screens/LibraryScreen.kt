@@ -250,7 +250,7 @@ fun LibraryScreen(
         )
     }
 
-    val tabs = listOf("Folders & Labels", "Bookmarks", "Annotations", "Private Vault")
+    val tabs = listOf("Folders & Labels", "Favorites", "Bookmarks", "Annotations", "Private Vault")
 
     Column(
         modifier = Modifier
