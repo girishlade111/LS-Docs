@@ -104,6 +104,7 @@ import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.components.MoveToFolderDialog
+import com.example.ui.components.TagManagementDialog
 import com.example.ui.components.parseHexColor
 import com.example.ui.theme.DensityGreen
 import com.example.ui.theme.Purple40
@@ -170,7 +171,7 @@ fun HomeScreen(
         CategoryPickerDialog(
             currentCategory = docToCategorize?.category,
             onDismiss = { docToCategorize = null },
-            onCategorySelected = { newCat ->
+            onCategorySelected = { newCat: String ->
                 docToCategorize?.let { doc ->
                     viewModel.updateDocumentCategory(doc.uriString, newCat)
                 }
@@ -297,6 +298,23 @@ fun HomeScreen(
     val selectedDocUris = remember { mutableStateListOf<String>() }
     var showBatchMoveDialog by remember { mutableStateOf(false) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
+    var docToTag by remember { mutableStateOf<DocumentRecord?>(null) }
+
+    if (docToTag != null) {
+        val allExistingTags = remember(recentDocs) {
+            recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct()
+        }
+        TagManagementDialog(
+            documentTitle = docToTag?.fileName ?: "",
+            initialTags = docToTag?.tags ?: "",
+            availableTags = allExistingTags,
+            onDismiss = { docToTag = null },
+            onTagsSaved = { newTags ->
+                docToTag?.let { viewModel.updateDocumentTags(it.uriString, newTags) }
+                docToTag = null
+            }
+        )
+    }
 
     if (showBatchMoveDialog) {
         MoveToFolderDialog(
@@ -809,10 +827,17 @@ fun HomeScreen(
         // Recent / Sample Documents
         item {
             val filteredRecentDocs = remember(recentDocs, selectedRecentCategory, selectedSortOption, allMetadata) {
+                val currentCategory = selectedRecentCategory
                 val filtered = when {
-                    selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All" -> recentDocs
-                    selectedRecentCategory == "Favorites" || selectedRecentCategory == "★ Favorites" -> recentDocs.filter { it.isFavorite || it.isPinned }
-                    else -> recentDocs.filter { it.category.equals(selectedRecentCategory, ignoreCase = true) }
+                    currentCategory.isNullOrBlank() || currentCategory == "All" -> recentDocs
+                    currentCategory == "Favorites" || currentCategory == "★ Favorites" -> recentDocs.filter { it.isFavorite || it.isPinned }
+                    currentCategory.startsWith("#") -> {
+                        val tagToMatch = currentCategory.removePrefix("#").lowercase()
+                        recentDocs.filter { doc ->
+                            doc.tags.split(",").map { t -> t.trim().removePrefix("#").lowercase() }.contains(tagToMatch)
+                        }
+                    }
+                    else -> recentDocs.filter { it.category.equals(currentCategory, ignoreCase = true) }
                 }
                 filtered.sortDocuments(selectedSortOption, allMetadata)
             }
@@ -835,7 +860,9 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = if (selectedRecentCategory == "★ Favorites") "FAVORITE & PINNED DOCUMENTS" else "RECENT DOCUMENTS",
+                        text = if (selectedRecentCategory == "★ Favorites") "FAVORITE & PINNED DOCUMENTS"
+                        else if (selectedRecentCategory?.startsWith("#") == true) "TAGGED: $selectedRecentCategory"
+                        else "RECENT DOCUMENTS",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -896,8 +923,11 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Category Filter Pills with Favorites
-            val categoryFilters = remember { listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames() }
+            // Category and Custom Tag Filter Pills
+            val categoryFilters = remember(recentDocs) {
+                val customTags = recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct().map { "#$it" }
+                (listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames() + customTags).distinct()
+            }
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
@@ -976,6 +1006,7 @@ fun HomeScreen(
                             fileType = doc.extension.uppercase(),
                             progress = doc.readingProgress,
                             category = doc.category.takeIf { it.isNotBlank() },
+                            tags = doc.tags,
                             folderName = docFolder?.name,
                             folderColorHex = docFolder?.colorHex,
                             isFavorite = doc.isFavorite,
@@ -993,6 +1024,9 @@ fun HomeScreen(
                             },
                             onCategoryClick = {
                                 docToCategorize = doc
+                            },
+                            onTagClick = {
+                                docToTag = doc
                             },
                             onClick = {
                                 if (isMultiSelectMode) {
@@ -1192,6 +1226,7 @@ fun DocumentRowItem(
     fileType: String,
     progress: Float,
     category: String? = null,
+    tags: String = "",
     folderName: String? = null,
     folderColorHex: String? = null,
     isFavorite: Boolean = false,
@@ -1201,6 +1236,7 @@ fun DocumentRowItem(
     onFavoriteClick: (() -> Unit)? = null,
     onFolderClick: (() -> Unit)? = null,
     onCategoryClick: (() -> Unit)? = null,
+    onTagClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
@@ -1302,6 +1338,22 @@ fun DocumentRowItem(
                             onClick = onCategoryClick
                         )
                     }
+
+                    if (tags.isNotBlank()) {
+                        val tagItems = tags.split(",").map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }
+                        tagItems.take(2).forEach { t ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+                                    .clickable(enabled = onTagClick != null) { onTagClick?.invoke() }
+                                    .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            ) {
+                                Text("#$t", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                            }
+                        }
+                    }
                 }
 
                 if (progress > 0) {
@@ -1329,6 +1381,20 @@ fun DocumentRowItem(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = if (isFavorite) "Favorited" else "Favorite",
                             tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                if (onTagClick != null) {
+                    IconButton(
+                        onClick = onTagClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tag,
+                            contentDescription = "Edit Tags",
+                            tint = if (tags.isNotBlank()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(18.dp)
                         )
                     }

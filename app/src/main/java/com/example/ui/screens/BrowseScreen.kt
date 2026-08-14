@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -96,6 +97,7 @@ import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.components.MoveToFolderDialog
+import com.example.ui.components.TagManagementDialog
 import com.example.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,6 +125,7 @@ fun BrowseScreen(
     var selectedFileForDetails by remember { mutableStateOf<FileDetails?>(null) }
     var showDetailsSheet by remember { mutableStateOf(false) }
     var fileToCategorize by remember { mutableStateOf<FileDetails?>(null) }
+    var fileToTag by remember { mutableStateOf<FileDetails?>(null) }
     var fileToMoveToFolder by remember { mutableStateOf<FileDetails?>(null) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
 
@@ -132,6 +135,24 @@ fun BrowseScreen(
             onConfirm = { name, desc, colorHex ->
                 viewModel.createFolder(name, desc, colorHex)
                 showCreateFolderDialog = false
+            }
+        )
+    }
+
+    if (fileToTag != null) {
+        val targetUri = fileToTag!!.uri.toString()
+        val currentDoc = recentDocs.find { it.uriString == targetUri }
+        val allExistingTags = remember(recentDocs) {
+            recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct()
+        }
+        TagManagementDialog(
+            documentTitle = fileToTag!!.name,
+            initialTags = currentDoc?.tags ?: "",
+            availableTags = allExistingTags,
+            onDismiss = { fileToTag = null },
+            onTagsSaved = { newTags ->
+                viewModel.updateDocumentTags(targetUri, newTags)
+                fileToTag = null
             }
         )
     }
@@ -154,7 +175,7 @@ fun BrowseScreen(
         CategoryPickerDialog(
             currentCategory = docCategoryMap[fileToCategorize!!.uri.toString()],
             onDismiss = { fileToCategorize = null },
-            onCategorySelected = { newCat ->
+            onCategorySelected = { newCat: String ->
                 viewModel.updateDocumentCategory(fileToCategorize!!.uri.toString(), newCat)
                 fileToCategorize = null
             }
@@ -172,8 +193,9 @@ fun BrowseScreen(
     // Storage analytics tab state
     var activeTab by remember { mutableStateOf(0) }
 
-    val availableTags = remember {
-        listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames()
+    val availableTags = remember(recentDocs) {
+        val customTags = recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct().map { "#$it" }
+        (listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames() + customTags).distinct()
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -206,6 +228,11 @@ fun BrowseScreen(
                 selectedTagFilter == null || selectedTagFilter == "All" -> true
                 selectedTagFilter == "Favorites" || selectedTagFilter == "★ Favorites" -> {
                     recentDocs.any { r -> r.uriString == file.uri.toString() && (r.isFavorite || r.isPinned) }
+                }
+                selectedTagFilter!!.startsWith("#") -> {
+                    val tagToMatch = selectedTagFilter!!.removePrefix("#").lowercase()
+                    val matchingDoc = recentDocs.find { it.uriString == file.uri.toString() }
+                    matchingDoc?.tags?.split(",")?.map { t -> t.trim().removePrefix("#").lowercase() }?.contains(tagToMatch) == true
                 }
                 else -> {
                     fileCat.equals(selectedTagFilter, ignoreCase = true) || file.path.contains(selectedTagFilter!!, ignoreCase = true)
@@ -512,6 +539,23 @@ fun BrowseScreen(
                                                     }
                                                 )
                                             }
+                                            val matchingDoc = recentDocs.find { it.uriString == file.uri.toString() }
+                                            val docTags = matchingDoc?.tags ?: ""
+                                            if (docTags.isNotBlank()) {
+                                                val tagItems = docTags.split(",").map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }
+                                                tagItems.take(2).forEach { t ->
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+                                                            .clickable { fileToTag = file }
+                                                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                    ) {
+                                                        Text("#$t", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
@@ -524,6 +568,20 @@ fun BrowseScreen(
                                             imageVector = if (isFav) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                             contentDescription = if (isFav) "Favorited" else "Favorite",
                                             tint = if (isFav) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    val matchingDoc = recentDocs.find { it.uriString == file.uri.toString() }
+                                    val docTags = matchingDoc?.tags ?: ""
+                                    IconButton(onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        fileToTag = file
+                                    }) {
+                                        Icon(
+                                            Icons.Default.Tag,
+                                            contentDescription = "Manage Tags",
+                                            tint = if (docTags.isNotBlank()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }

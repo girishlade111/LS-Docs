@@ -65,7 +65,7 @@ fun CategoryChip(
 ) {
     val displayCategory = category?.trim().takeUnless { it.isNullOrEmpty() } ?: "Uncategorized"
     val colorScheme = DocumentCategory.getColorScheme(category, isDark)
-    val icon = DocumentCategory.getIcon(category)
+    val icon = if (category?.startsWith("#") == true) Icons.Default.Tag else DocumentCategory.getIcon(category)
 
     val (horizontalPadding, verticalPadding, fontSize, iconSize, cornerRadius) = when (size) {
         ChipSize.Small -> Tuple5(6.dp, 2.dp, 9.sp, 10.dp, 6.dp)

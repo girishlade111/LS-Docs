@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -74,6 +75,7 @@ import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.FolderCard
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.MoveToFolderDialog
+import com.example.ui.components.TagManagementDialog
 import com.example.ui.components.parseHexColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -114,6 +116,7 @@ fun LibraryScreen(
     var folderToDelete by remember { mutableStateOf<FolderRecord?>(null) }
     var docToMoveToFolder by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
+    var docToTag by remember { mutableStateOf<DocumentRecord?>(null) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
@@ -205,11 +208,29 @@ fun LibraryScreen(
         CategoryPickerDialog(
             currentCategory = docToCategorize?.category,
             onDismiss = { docToCategorize = null },
-            onCategorySelected = { newCat ->
+            onCategorySelected = { newCat: String ->
                 docToCategorize?.let { doc ->
                     viewModel.updateDocumentCategory(doc.uriString, newCat)
                 }
                 docToCategorize = null
+            }
+        )
+    }
+
+    if (docToTag != null) {
+        val allExistingTags = remember(recentDocs) {
+            recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct()
+        }
+        TagManagementDialog(
+            documentTitle = docToTag?.fileName ?: "",
+            initialTags = docToTag?.tags ?: "",
+            availableTags = allExistingTags,
+            onDismiss = { docToTag = null },
+            onTagsSaved = { newTags ->
+                docToTag?.let { doc ->
+                    viewModel.updateDocumentTags(doc.uriString, newTags)
+                }
+                docToTag = null
             }
         )
     }
@@ -374,10 +395,15 @@ fun LibraryScreen(
                         recentDocs
                     }
 
-                    val filteredByCategory = if (selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All") {
-                        filteredByFolder
-                    } else {
-                        filteredByFolder.filter { it.category.equals(selectedCategoryFilter, ignoreCase = true) }
+                    val filteredByCategory = when {
+                        selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All" -> filteredByFolder
+                        selectedCategoryFilter!!.startsWith("#") -> {
+                            val tagToMatch = selectedCategoryFilter!!.removePrefix("#").lowercase()
+                            filteredByFolder.filter { doc ->
+                                doc.tags.split(",").map { t -> t.trim().removePrefix("#").lowercase() }.contains(tagToMatch)
+                            }
+                        }
+                        else -> filteredByFolder.filter { it.category.equals(selectedCategoryFilter, ignoreCase = true) }
                     }
 
                     filteredByCategory.sortDocuments(selectedSortOption, allMetadata)
@@ -397,7 +423,10 @@ fun LibraryScreen(
                     map
                 }
 
-                val allCategories = remember { listOf("All") + DocumentCategory.getCategoryNames() }
+                val allCategories = remember(recentDocs) {
+                    val customTags = recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct().map { "#$it" }
+                    (listOf("All") + DocumentCategory.getCategoryNames() + customTags).distinct()
+                }
 
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (activeFolder != null) {
@@ -755,6 +784,21 @@ fun LibraryScreen(
                                                         onClick = { docToCategorize = doc }
                                                     )
                                                 }
+                                                if (doc.tags.isNotBlank()) {
+                                                    val tagItems = doc.tags.split(",").map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }
+                                                    tagItems.take(2).forEach { t ->
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+                                                                .clickable { docToTag = doc }
+                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("#$t", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -765,6 +809,16 @@ fun LibraryScreen(
                                                     imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                                     contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
                                                     tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+
+                                            // Manage Tags Action
+                                            IconButton(onClick = { docToTag = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Tag,
+                                                    contentDescription = "Manage Tags",
+                                                    tint = if (doc.tags.isNotBlank()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -980,6 +1034,21 @@ fun LibraryScreen(
                                                         onClick = { docToCategorize = doc }
                                                     )
                                                 }
+                                                if (doc.tags.isNotBlank()) {
+                                                    val tagItems = doc.tags.split(",").map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }
+                                                    tagItems.take(2).forEach { t ->
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+                                                                .clickable { docToTag = doc }
+                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("#$t", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -990,6 +1059,16 @@ fun LibraryScreen(
                                                     imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                                     contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
                                                     tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+
+                                            // Manage Tags Action
+                                            IconButton(onClick = { docToTag = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Tag,
+                                                    contentDescription = "Manage Tags",
+                                                    tint = if (doc.tags.isNotBlank()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }

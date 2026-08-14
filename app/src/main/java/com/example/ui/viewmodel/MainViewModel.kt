@@ -319,13 +319,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateDocumentCategory(uriString: String, category: String) {
-        viewModelScope.launch {
-            repository.updateDocumentCategory(uriString, category)
-            showToast(if (category.isNotBlank()) "Labeled as \"$category\"" else "Category cleared")
-        }
-    }
-
     fun createFolder(name: String, description: String = "", colorHex: String = "#6750A4") {
         viewModelScope.launch {
             repository.createFolder(name, description, colorHex)
