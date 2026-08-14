@@ -41,9 +41,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import com.example.data.database.DocumentRecord
 import com.example.data.model.DocumentCategory
+import com.example.data.model.DocumentSortOption
+import com.example.data.model.sortDocuments
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
+import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -75,6 +78,7 @@ fun LibraryScreen(
 
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
+    var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
