@@ -249,6 +249,17 @@ class DocumentRepository(private val context: Context) {
         }
     }
 
+    suspend fun deleteMultipleDocumentRecords(uriStrings: List<String>) {
+        uriStrings.forEach { uri ->
+            docDao.deleteDocumentByUri(uri)
+            metadataDao.deleteMetadataByUri(uri)
+            val tabToClose = _openTabs.value.find { it.uriString == uri }
+            if (tabToClose != null) {
+                closeTab(tabToClose.tabId)
+            }
+        }
+    }
+
     suspend fun addBookmark(uriString: String, title: String, note: String, pageOrLine: Int, fileType: String) {
         bookmarkDao.insertBookmark(
             BookmarkRecord(

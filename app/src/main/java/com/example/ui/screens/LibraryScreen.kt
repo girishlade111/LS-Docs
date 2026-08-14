@@ -26,6 +26,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -38,16 +42,21 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +65,7 @@ import com.example.data.database.FolderRecord
 import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentSortOption
 import com.example.data.model.sortDocuments
+import com.example.ui.components.BatchActionBar
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
@@ -244,6 +254,73 @@ fun LibraryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { docToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    val haptic = LocalHapticFeedback.current
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    val selectedDocUris = remember { mutableStateListOf<String>() }
+    var showBatchMoveDialog by remember { mutableStateOf(false) }
+    var showBatchDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showBatchMoveDialog) {
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = null,
+            onDismiss = { showBatchMoveDialog = false },
+            onCreateNewFolder = { showCreateFolderDialog = true },
+            onFolderSelected = { fId, fName ->
+                viewModel.moveMultipleDocumentsToFolder(selectedDocUris.toList(), fId, fName)
+                selectedDocUris.clear()
+                isMultiSelectMode = false
+                showBatchMoveDialog = false
+            }
+        )
+    }
+
+    if (showBatchDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showBatchDeleteDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete ${selectedDocUris.size} Documents?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete ${selectedDocUris.size} selected documents from your library history? All bookmarks, metadata, and reading progress will be permanently removed.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteMultipleDocuments(selectedDocUris.toList())
+                        selectedDocUris.clear()
+                        isMultiSelectMode = false
+                        showBatchDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Selected", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDeleteDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -519,6 +596,28 @@ fun LibraryScreen(
                             else "No documents found matching category \"$selectedCategoryFilter\"."
                         )
                     } else {
+                        if (isMultiSelectMode) {
+                            BatchActionBar(
+                                selectedCount = selectedDocUris.size,
+                                totalCount = displayedDocs.size,
+                                onSelectAll = {
+                                    if (selectedDocUris.size == displayedDocs.size) {
+                                        selectedDocUris.clear()
+                                    } else {
+                                        selectedDocUris.clear()
+                                        selectedDocUris.addAll(displayedDocs.map { it.uriString })
+                                    }
+                                },
+                                onMoveToFolder = { showBatchMoveDialog = true },
+                                onDelete = { showBatchDeleteDialog = true },
+                                onClose = {
+                                    isMultiSelectMode = false
+                                    selectedDocUris.clear()
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -530,10 +629,27 @@ fun LibraryScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            DocumentSortMenu(
-                                selectedOption = selectedSortOption,
-                                onOptionSelected = { selectedSortOption = it }
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        isMultiSelectMode = !isMultiSelectMode
+                                        if (!isMultiSelectMode) selectedDocUris.clear()
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isMultiSelectMode) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                        contentDescription = "Toggle Multi-Select Mode",
+                                        tint = if (isMultiSelectMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                DocumentSortMenu(
+                                    selectedOption = selectedSortOption,
+                                    onOptionSelected = { selectedSortOption = it }
+                                )
+                            }
                         }
 
                         LazyColumn(
@@ -542,17 +658,28 @@ fun LibraryScreen(
                         ) {
                             items(displayedDocs) { doc ->
                                 val docFolder = folders.find { it.id == doc.folderId }
+                                val isSelected = selectedDocUris.contains(doc.uriString)
                                 HighDensityCard(
                                     onClick = {
-                                        try {
-                                            viewModel.openDocument(Uri.parse(doc.uriString))
-                                            onNavigateToWorkspace()
-                                        } catch (e: Exception) {
-                                            viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                        if (isMultiSelectMode) {
+                                            if (isSelected) selectedDocUris.remove(doc.uriString)
+                                            else selectedDocUris.add(doc.uriString)
+                                        } else {
+                                            try {
+                                                viewModel.openDocument(Uri.parse(doc.uriString))
+                                                onNavigateToWorkspace()
+                                            } catch (e: Exception) {
+                                                viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                            }
                                         }
                                     },
                                     shape = RoundedCornerShape(18.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
+                                            else Modifier
+                                        )
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -560,6 +687,17 @@ fun LibraryScreen(
                                             .fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        if (isMultiSelectMode) {
+                                            Checkbox(
+                                                checked = isSelected,
+                                                onCheckedChange = { checked ->
+                                                    if (checked) selectedDocUris.add(doc.uriString)
+                                                    else selectedDocUris.remove(doc.uriString)
+                                                }
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                        }
+
                                         Box(
                                             modifier = Modifier
                                                 .size(40.dp)
@@ -620,44 +758,46 @@ fun LibraryScreen(
                                             }
                                         }
 
-                                        // Favorite Heart Toggle Button
-                                        IconButton(onClick = { viewModel.toggleFavorite(doc.uriString) }) {
-                                            Icon(
-                                                imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                                contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
-                                                tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                        if (!isMultiSelectMode) {
+                                            // Favorite Heart Toggle Button
+                                            IconButton(onClick = { viewModel.toggleFavorite(doc.uriString) }) {
+                                                Icon(
+                                                    imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                                    contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
+                                                    tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
 
-                                        // Move to Folder Action
-                                        IconButton(onClick = { docToMoveToFolder = doc }) {
-                                            Icon(
-                                                imageVector = Icons.Default.DriveFileMove,
-                                                contentDescription = "Move to Folder",
-                                                tint = if (doc.folderId.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                            // Move to Folder Action
+                                            IconButton(onClick = { docToMoveToFolder = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.DriveFileMove,
+                                                    contentDescription = "Move to Folder",
+                                                    tint = if (doc.folderId.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
 
-                                        // Category Label Action
-                                        IconButton(onClick = { docToCategorize = doc }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Label,
-                                                contentDescription = "Change Category",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                            // Category Label Action
+                                            IconButton(onClick = { docToCategorize = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Label,
+                                                    contentDescription = "Change Category",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
 
-                                        // Delete Record Action
-                                        IconButton(onClick = { docToDelete = doc }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete Record",
-                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                            // Delete Record Action
+                                            IconButton(onClick = { docToDelete = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete Record",
+                                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -673,6 +813,27 @@ fun LibraryScreen(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (isMultiSelectMode) {
+                        BatchActionBar(
+                            selectedCount = selectedDocUris.size,
+                            totalCount = favoriteDocs.size,
+                            onSelectAll = {
+                                if (selectedDocUris.size == favoriteDocs.size) {
+                                    selectedDocUris.clear()
+                                } else {
+                                    selectedDocUris.clear()
+                                    selectedDocUris.addAll(favoriteDocs.map { it.uriString })
+                                }
+                            },
+                            onMoveToFolder = { showBatchMoveDialog = true },
+                            onDelete = { showBatchDeleteDialog = true },
+                            onClose = {
+                                isMultiSelectMode = false
+                                selectedDocUris.clear()
+                            }
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -693,10 +854,27 @@ fun LibraryScreen(
                             )
                         }
 
-                        DocumentSortMenu(
-                            selectedOption = selectedSortOption,
-                            onOptionSelected = { selectedSortOption = it }
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isMultiSelectMode = !isMultiSelectMode
+                                    if (!isMultiSelectMode) selectedDocUris.clear()
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isMultiSelectMode) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                    contentDescription = "Toggle Multi-Select Mode",
+                                    tint = if (isMultiSelectMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            DocumentSortMenu(
+                                selectedOption = selectedSortOption,
+                                onOptionSelected = { selectedSortOption = it }
+                            )
+                        }
                     }
 
                     if (favoriteDocs.isEmpty()) {
@@ -705,17 +883,28 @@ fun LibraryScreen(
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(favoriteDocs) { doc ->
                                 val docFolder = folders.find { it.id == doc.folderId }
+                                val isSelected = selectedDocUris.contains(doc.uriString)
                                 HighDensityCard(
                                     onClick = {
-                                        try {
-                                            viewModel.openDocument(Uri.parse(doc.uriString))
-                                            onNavigateToWorkspace()
-                                        } catch (e: Exception) {
-                                            viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                        if (isMultiSelectMode) {
+                                            if (isSelected) selectedDocUris.remove(doc.uriString)
+                                            else selectedDocUris.add(doc.uriString)
+                                        } else {
+                                            try {
+                                                viewModel.openDocument(Uri.parse(doc.uriString))
+                                                onNavigateToWorkspace()
+                                            } catch (e: Exception) {
+                                                viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                            }
                                         }
                                     },
                                     shape = RoundedCornerShape(18.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
+                                            else Modifier
+                                        )
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -723,6 +912,17 @@ fun LibraryScreen(
                                             .fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        if (isMultiSelectMode) {
+                                            Checkbox(
+                                                checked = isSelected,
+                                                onCheckedChange = { checked ->
+                                                    if (checked) selectedDocUris.add(doc.uriString)
+                                                    else selectedDocUris.remove(doc.uriString)
+                                                }
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                        }
+
                                         Box(
                                             modifier = Modifier
                                                 .size(40.dp)
@@ -783,34 +983,36 @@ fun LibraryScreen(
                                             }
                                         }
 
-                                        // Favorite Heart Toggle Button
-                                        IconButton(onClick = { viewModel.toggleFavorite(doc.uriString) }) {
-                                            Icon(
-                                                imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                                contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
-                                                tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                        if (!isMultiSelectMode) {
+                                            // Favorite Heart Toggle Button
+                                            IconButton(onClick = { viewModel.toggleFavorite(doc.uriString) }) {
+                                                Icon(
+                                                    imageVector = if (doc.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                                    contentDescription = if (doc.isFavorite) "Favorited" else "Favorite",
+                                                    tint = if (doc.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
 
-                                        // Move to Folder Action
-                                        IconButton(onClick = { docToMoveToFolder = doc }) {
-                                            Icon(
-                                                imageVector = Icons.Default.DriveFileMove,
-                                                contentDescription = "Move to Folder",
-                                                tint = if (doc.folderId.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                            // Move to Folder Action
+                                            IconButton(onClick = { docToMoveToFolder = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.DriveFileMove,
+                                                    contentDescription = "Move to Folder",
+                                                    tint = if (doc.folderId.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
 
-                                        // Delete Record Action
-                                        IconButton(onClick = { docToDelete = doc }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete Record",
-                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                            // Delete Record Action
+                                            IconButton(onClick = { docToDelete = doc }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete Record",
+                                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }

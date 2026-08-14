@@ -87,7 +87,14 @@ import com.example.data.model.DocumentFileType
 import com.example.data.model.DocumentSortOption
 import com.example.data.model.sortDocuments
 import com.example.data.model.sortFiles
-import com.example.data.database.FolderRecord
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.example.ui.components.BatchActionBar
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
@@ -284,6 +291,73 @@ fun HomeScreen(
         }
     }
 
+    val haptic = LocalHapticFeedback.current
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    val selectedDocUris = remember { mutableStateListOf<String>() }
+    var showBatchMoveDialog by remember { mutableStateOf(false) }
+    var showBatchDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showBatchMoveDialog) {
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = null,
+            onDismiss = { showBatchMoveDialog = false },
+            onCreateNewFolder = { showCreateFolderDialog = true },
+            onFolderSelected = { fId, fName ->
+                viewModel.moveMultipleDocumentsToFolder(selectedDocUris.toList(), fId, fName)
+                selectedDocUris.clear()
+                isMultiSelectMode = false
+                showBatchMoveDialog = false
+            }
+        )
+    }
+
+    if (showBatchDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showBatchDeleteDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete ${selectedDocUris.size} Documents?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently remove ${selectedDocUris.size} documents from your recent history? All metadata, bookmarks, and progress will be deleted.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteMultipleDocuments(selectedDocUris.toList())
+                        selectedDocUris.clear()
+                        isMultiSelectMode = false
+                        showBatchDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Selected", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     if (docToDelete != null) {
         AlertDialog(
             onDismissRequest = { docToDelete = null },
@@ -315,9 +389,7 @@ fun HomeScreen(
                         docToDelete?.let { viewModel.deleteDocumentRecord(it.uriString) }
                         docToDelete = null
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Delete Record", fontWeight = FontWeight.Bold)
                 }
@@ -776,10 +848,51 @@ fun HomeScreen(
                     )
                 }
 
-                DocumentSortMenu(
-                    selectedOption = selectedSortOption,
-                    onOptionSelected = { selectedSortOption = it }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (recentDocs.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                isMultiSelectMode = !isMultiSelectMode
+                                if (!isMultiSelectMode) selectedDocUris.clear()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isMultiSelectMode) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                contentDescription = "Toggle Multi-Select Mode",
+                                tint = if (isMultiSelectMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    DocumentSortMenu(
+                        selectedOption = selectedSortOption,
+                        onOptionSelected = { selectedSortOption = it }
+                    )
+                }
+            }
+
+            if (isMultiSelectMode) {
+                BatchActionBar(
+                    selectedCount = selectedDocUris.size,
+                    totalCount = filteredRecentDocs.size,
+                    onSelectAll = {
+                        if (selectedDocUris.size == filteredRecentDocs.size) {
+                            selectedDocUris.clear()
+                        } else {
+                            selectedDocUris.clear()
+                            selectedDocUris.addAll(filteredRecentDocs.map { it.uriString })
+                        }
+                    },
+                    onMoveToFolder = { showBatchMoveDialog = true },
+                    onDelete = { showBatchDeleteDialog = true },
+                    onClose = {
+                        isMultiSelectMode = false
+                        selectedDocUris.clear()
+                    }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Category Filter Pills with Favorites
@@ -856,6 +969,7 @@ fun HomeScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     filteredRecentDocs.take(10).forEach { doc ->
                         val docFolder = folders.find { it.id == doc.folderId }
+                        val isSelected = selectedDocUris.contains(doc.uriString)
                         DocumentRowItem(
                             fileName = doc.fileName,
                             fileType = doc.extension.uppercase(),
@@ -864,6 +978,12 @@ fun HomeScreen(
                             folderName = docFolder?.name,
                             folderColorHex = docFolder?.colorHex,
                             isFavorite = doc.isFavorite,
+                            isMultiSelectMode = isMultiSelectMode,
+                            isSelected = isSelected,
+                            onToggleSelect = {
+                                if (isSelected) selectedDocUris.remove(doc.uriString)
+                                else selectedDocUris.add(doc.uriString)
+                            },
                             onFavoriteClick = {
                                 viewModel.toggleFavorite(doc.uriString)
                             },
@@ -874,11 +994,16 @@ fun HomeScreen(
                                 docToCategorize = doc
                             },
                             onClick = {
-                                try {
-                                    viewModel.openDocument(Uri.parse(doc.uriString))
-                                    onNavigateToWorkspace()
-                                } catch (e: Exception) {
-                                    viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                if (isMultiSelectMode) {
+                                    if (isSelected) selectedDocUris.remove(doc.uriString)
+                                    else selectedDocUris.add(doc.uriString)
+                                } else {
+                                    try {
+                                        viewModel.openDocument(Uri.parse(doc.uriString))
+                                        onNavigateToWorkspace()
+                                    } catch (e: Exception) {
+                                        viewModel.showToast("Cannot open document: ${e.localizedMessage}")
+                                    }
                                 }
                             },
                             onDelete = {
@@ -1069,6 +1194,9 @@ fun DocumentRowItem(
     folderName: String? = null,
     folderColorHex: String? = null,
     isFavorite: Boolean = false,
+    isMultiSelectMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: (() -> Unit)? = null,
     onFavoriteClick: (() -> Unit)? = null,
     onFolderClick: (() -> Unit)? = null,
     onCategoryClick: (() -> Unit)? = null,
@@ -1077,7 +1205,12 @@ fun DocumentRowItem(
 ) {
     HighDensityCard(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
+                else Modifier
+            ),
         shape = RoundedCornerShape(18.dp)
     ) {
         Row(
@@ -1086,6 +1219,14 @@ fun DocumentRowItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isMultiSelectMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelect?.invoke() }
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -1176,60 +1317,62 @@ fun DocumentRowItem(
                 }
             }
 
-            // Favorite Heart Toggle Button
-            if (onFavoriteClick != null) {
-                IconButton(
-                    onClick = onFavoriteClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = if (isFavorite) "Favorited" else "Favorite",
-                        tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
+            if (!isMultiSelectMode) {
+                // Favorite Heart Toggle Button
+                if (onFavoriteClick != null) {
+                    IconButton(
+                        onClick = onFavoriteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Favorited" else "Favorite",
+                            tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
-            }
 
-            if (onFolderClick != null) {
-                IconButton(
-                    onClick = onFolderClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DriveFileMove,
-                        contentDescription = "Move to Folder",
-                        tint = if (!folderName.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (onFolderClick != null) {
+                    IconButton(
+                        onClick = onFolderClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DriveFileMove,
+                            contentDescription = "Move to Folder",
+                            tint = if (!folderName.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
-            }
 
-            if (onCategoryClick != null && category == null) {
-                IconButton(
-                    onClick = onCategoryClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Label,
-                        contentDescription = "Label Category",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (onCategoryClick != null && category == null) {
+                    IconButton(
+                        onClick = onCategoryClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Label,
+                            contentDescription = "Label Category",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
-            }
 
-            if (onDelete != null) {
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Record",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (onDelete != null) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Record",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

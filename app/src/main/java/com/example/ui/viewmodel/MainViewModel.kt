@@ -179,6 +179,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteMultipleDocuments(uriStrings: List<String>) {
+        viewModelScope.launch {
+            repository.deleteMultipleDocumentRecords(uriStrings)
+            refreshDeviceFiles()
+            showToast("Removed ${uriStrings.size} documents from history")
+        }
+    }
+
     fun deleteFilePermanently(uriString: String) {
         viewModelScope.launch {
             FileHelper.deletePhysicalFile(getApplication(), uriString)

@@ -51,6 +51,9 @@ interface DocumentDao {
     @Query("DELETE FROM document_records WHERE uriString = :uri")
     suspend fun deleteDocumentByUri(uri: String)
 
+    @Query("DELETE FROM document_records WHERE uriString IN (:uris)")
+    suspend fun deleteDocumentsByUris(uris: List<String>)
+
     @Query("DELETE FROM document_records")
     suspend fun clearAllRecentDocuments()
 }
