@@ -122,6 +122,7 @@ fun BrowseScreen(
         map
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedTagFilter by remember { mutableStateOf<String?>(null) }
     var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
@@ -132,7 +133,21 @@ fun BrowseScreen(
     var fileToShare by remember { mutableStateOf<FileDetails?>(null) }
     var fileToMoveToFolder by remember { mutableStateOf<FileDetails?>(null) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    val selectedFilePaths = remember { mutableStateListOf<String>() }
+    var showBatchMoveDialog by remember { mutableStateOf(false) }
+    var showBatchDeleteDialog by remember { mutableStateOf(false) }
+    var showSingleDeleteDialog by remember { mutableStateOf(false) }
     var showBatchShareDialog by remember { mutableStateOf(false) }
+    var destinationFolderInput by remember { mutableStateOf("Documents/Archived") }
+
+    // Storage analytics tab state
+    var activeTab by remember { mutableStateOf(0) }
+
+    val availableTags = remember(recentDocs) {
+        val customTags = recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct().map { "#$it" }
+        (listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames() + customTags).distinct()
+    }
 
     if (showCreateFolderDialog) {
         CreateFolderDialog(
@@ -228,24 +243,6 @@ fun BrowseScreen(
             }
         )
     }
-
-    // Multi-select state
-    var isMultiSelectMode by remember { mutableStateOf(false) }
-    val selectedFilePaths = remember { mutableStateListOf<String>() }
-    var showBatchMoveDialog by remember { mutableStateOf(false) }
-    var showBatchDeleteDialog by remember { mutableStateOf(false) }
-    var showSingleDeleteDialog by remember { mutableStateOf(false) }
-    var destinationFolderInput by remember { mutableStateOf("Documents/Archived") }
-
-    // Storage analytics tab state
-    var activeTab by remember { mutableStateOf(0) }
-
-    val availableTags = remember(recentDocs) {
-        val customTags = recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct().map { "#$it" }
-        (listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames() + customTags).distinct()
-    }
-
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()

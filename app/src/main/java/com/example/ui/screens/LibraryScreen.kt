@@ -113,6 +113,7 @@ fun LibraryScreen(
     val isVaultUnlocked by viewModel.isPrivateVaultUnlocked.collectAsState()
 
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
     var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
@@ -125,6 +126,10 @@ fun LibraryScreen(
     var docToTag by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToShare by remember { mutableStateOf<DocumentRecord?>(null) }
     var showBatchShareDialog by remember { mutableStateOf(false) }
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    val selectedDocUris = remember { mutableStateListOf<String>() }
+    var showBatchMoveDialog by remember { mutableStateOf(false) }
+    var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
@@ -267,6 +272,67 @@ fun LibraryScreen(
         )
     }
 
+    if (showBatchMoveDialog) {
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = null,
+            onDismiss = { showBatchMoveDialog = false },
+            onCreateNewFolder = { showCreateFolderDialog = true },
+            onFolderSelected = { fId, fName ->
+                viewModel.moveMultipleDocumentsToFolder(selectedDocUris.toList(), fId, fName)
+                selectedDocUris.clear()
+                isMultiSelectMode = false
+                showBatchMoveDialog = false
+            }
+        )
+    }
+
+    if (showBatchDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showBatchDeleteDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete ${selectedDocUris.size} Documents?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete ${selectedDocUris.size} selected documents from your library history? All bookmarks, metadata, and reading progress will be permanently removed.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteMultipleDocuments(selectedDocUris.toList())
+                        selectedDocUris.clear()
+                        isMultiSelectMode = false
+                        showBatchDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Selected", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     if (docToTag != null) {
         val allExistingTags = remember(recentDocs) {
             recentDocs.flatMap { it.tags.split(",") }.map { it.trim().removePrefix("#") }.filter { it.isNotBlank() }.distinct()
@@ -325,73 +391,6 @@ fun LibraryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { docToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    val haptic = LocalHapticFeedback.current
-    var isMultiSelectMode by remember { mutableStateOf(false) }
-    val selectedDocUris = remember { mutableStateListOf<String>() }
-    var showBatchMoveDialog by remember { mutableStateOf(false) }
-    var showBatchDeleteDialog by remember { mutableStateOf(false) }
-
-    if (showBatchMoveDialog) {
-        MoveToFolderDialog(
-            folders = folders,
-            currentFolderId = null,
-            onDismiss = { showBatchMoveDialog = false },
-            onCreateNewFolder = { showCreateFolderDialog = true },
-            onFolderSelected = { fId, fName ->
-                viewModel.moveMultipleDocumentsToFolder(selectedDocUris.toList(), fId, fName)
-                selectedDocUris.clear()
-                isMultiSelectMode = false
-                showBatchMoveDialog = false
-            }
-        )
-    }
-
-    if (showBatchDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showBatchDeleteDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(28.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = "Delete ${selectedDocUris.size} Documents?",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp
-                )
-            },
-            text = {
-                Text(
-                    text = "Are you sure you want to delete ${selectedDocUris.size} selected documents from your library history? All bookmarks, metadata, and reading progress will be permanently removed.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteMultipleDocuments(selectedDocUris.toList())
-                        selectedDocUris.clear()
-                        isMultiSelectMode = false
-                        showBatchDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete Selected", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showBatchDeleteDialog = false }) {
                     Text("Cancel")
                 }
             }
