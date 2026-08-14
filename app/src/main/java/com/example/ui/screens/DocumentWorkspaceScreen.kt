@@ -564,6 +564,7 @@ fun GenericDocumentViewer(tab: OpenTab) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DocumentDetailsDialog(
     activeTab: OpenTab,
