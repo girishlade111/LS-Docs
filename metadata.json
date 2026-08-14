@@ -1,0 +1,6 @@
+{
+  "name": "LS Docs",
+  "description": "Privacy-first, offline document viewer, reader, inspector, and lightweight editor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

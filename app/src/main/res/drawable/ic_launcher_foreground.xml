@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Secondary Backing Document Sheet (3D Layering effect) -->
+    <path
+        android:pathData="M38,24h24l12,12v40c0,3.3 -2.7,6 -6,6H38c-3.3,0 -6,-2.7 -6,-6V30c0,-3.3 2.7,-6 6,-6z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="32"
+                android:startY="24"
+                android:endX="74"
+                android:endY="82"
+                android:type="linear">
+                <item android:color="#3B82F6" android:offset="0.0" />
+                <item android:color="#1D4ED8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Main Primary Document Body (Front Layer) -->
+    <path
+        android:pathData="M32,28h26l16,16v38c0,4.4 -3.6,8 -8,8H32c-4.4,0 -8,-3.6 -8,-8V36c0,-4.4 3.6,-8 8,-8z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="24"
+                android:startY="28"
+                android:endX="74"
+                android:endY="90"
+                android:type="linear">
+                <item android:color="#06B6D4" android:offset="0.0" />
+                <item android:color="#0284C7" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Document Fold Corner -->
+    <path
+        android:fillColor="#0369A1"
+        android:pathData="M58,28v16h16z" />
+
+    <!-- Subtle Document Lines (Enterprise Data Stream) -->
+    <path
+        android:fillColor="#7DD3FC"
+        android:pathData="M34,40h18v3H34z M34,46h12v3H34z" />
+
+    <!-- Enterprise Security Shield Emblem Overlay -->
+    <path
+        android:pathData="M54,48c0,0 13,-3.5 13,-3.5v13.5c0,9.5 -7.2,16.5 -13,19.5c-5.8,-3 -13,-10 -13,-19.5V44.5c0,0 13,3.5 13,3.5z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="41"
+                android:startY="44.5"
+                android:endX="67"
+                android:endY="77.5"
+                android:type="linear">
+                <item android:color="#FFFFFF" android:offset="0.0" />
+                <item android:color="#E0F2FE" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shield Inner Core Checkmark / Lock Emblem -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M48.5,60.5l4,4l8.5,-8.5l2.5,2.5l-11,11l-6.5,-6.5z" />
+
+</vector>
