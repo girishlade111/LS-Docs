@@ -468,7 +468,7 @@ class DocumentRepository(private val context: Context) {
                 fileName = details.name,
                 path = details.path,
                 type = details.fileType.name,
-                mimeType = details.fileType.mimeType,
+                mimeType = details.mimeType,
                 extension = details.extension,
                 fileSize = details.sizeBytes,
                 isFavorite = true
@@ -493,7 +493,7 @@ class DocumentRepository(private val context: Context) {
                 fileName = details.name,
                 path = details.path,
                 type = details.fileType.name,
-                mimeType = details.fileType.mimeType,
+                mimeType = details.mimeType,
                 extension = details.extension,
                 fileSize = details.sizeBytes,
                 isPinned = true

@@ -351,20 +351,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             showToast("Removed from folder")
         }
     }
-
-    fun toggleFavorite(uriString: String) {
-        viewModelScope.launch {
-            val uri = Uri.parse(uriString)
-            val isFav = repository.toggleDocumentFavorite(uri)
-            showToast(if (isFav) "Added to Favorites" else "Removed from Favorites")
-        }
-    }
-
-    fun togglePinDocument(uriString: String) {
-        viewModelScope.launch {
-            val uri = Uri.parse(uriString)
-            val isPinned = repository.toggleDocumentPin(uri)
-            showToast(if (isPinned) "Document Pinned" else "Document Unpinned")
-        }
-    }
 }
