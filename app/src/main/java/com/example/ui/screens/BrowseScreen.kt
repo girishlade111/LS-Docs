@@ -80,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.database.FolderRecord
 import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentSortOption
 import com.example.data.model.FileDetails
@@ -87,9 +88,11 @@ import com.example.data.model.sortFiles
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
+import com.example.ui.components.CreateFolderDialog
 import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
+import com.example.ui.components.MoveToFolderDialog
 import com.example.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,6 +104,7 @@ fun BrowseScreen(
     val sampleFiles by viewModel.sampleFiles.collectAsState()
     val recentDocs by viewModel.recentDocuments.collectAsState()
     val metadataList by viewModel.allDocumentMetadata.collectAsState()
+    val folders by viewModel.folders.collectAsState()
     val haptic = LocalHapticFeedback.current
 
     val docCategoryMap = remember(recentDocs, metadataList) {
@@ -116,6 +120,32 @@ fun BrowseScreen(
     var selectedFileForDetails by remember { mutableStateOf<FileDetails?>(null) }
     var showDetailsSheet by remember { mutableStateOf(false) }
     var fileToCategorize by remember { mutableStateOf<FileDetails?>(null) }
+    var fileToMoveToFolder by remember { mutableStateOf<FileDetails?>(null) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
+
+    if (showCreateFolderDialog) {
+        CreateFolderDialog(
+            onDismiss = { showCreateFolderDialog = false },
+            onConfirm = { name, desc, colorHex ->
+                viewModel.createFolder(name, desc, colorHex)
+                showCreateFolderDialog = false
+            }
+        )
+    }
+
+    if (fileToMoveToFolder != null) {
+        val currentDoc = recentDocs.find { it.uriString == fileToMoveToFolder!!.uri.toString() }
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = currentDoc?.folderId,
+            onDismiss = { fileToMoveToFolder = null },
+            onCreateNewFolder = { showCreateFolderDialog = true },
+            onFolderSelected = { fId, fName ->
+                viewModel.moveDocumentToFolder(fileToMoveToFolder!!.uri.toString(), fId, fName)
+                fileToMoveToFolder = null
+            }
+        )
+    }
 
     if (fileToCategorize != null) {
         CategoryPickerDialog(
@@ -478,6 +508,18 @@ fun BrowseScreen(
 
                                     IconButton(onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        fileToMoveToFolder = file
+                                    }) {
+                                        Icon(
+                                            Icons.Default.DriveFileMove,
+                                            contentDescription = "Move to Folder",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         fileToCategorize = file
                                     }) {
                                         Icon(
@@ -509,36 +551,19 @@ fun BrowseScreen(
 
     // Dialogs for Batch Operations
     if (showBatchMoveDialog) {
-        AlertDialog(
-            onDismissRequest = { showBatchMoveDialog = false },
-            title = { Text("Move Selected Files") },
-            text = {
-                Column {
-                    Text("Enter destination folder path for ${selectedFilePaths.size} selected documents:")
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = destinationFolderInput,
-                        onValueChange = { destinationFolderInput = it },
-                        label = { Text("Target Folder") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showBatchMoveDialog = false
-                    isMultiSelectMode = false
-                    selectedFilePaths.clear()
-                }) {
-                    Text("Move Files")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showBatchMoveDialog = false }) {
-                    Text("Cancel")
-                }
+        val selectedUris = sampleFiles.filter { it.path in selectedFilePaths }.map { it.uri.toString() }
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = null,
+            documentCount = selectedFilePaths.size,
+            onDismiss = { showBatchMoveDialog = false },
+            onCreateNewFolder = { showCreateFolderDialog = true },
+            onFolderSelected = { fId, fName ->
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.moveMultipleDocumentsToFolder(selectedUris, fId, fName)
+                showBatchMoveDialog = false
+                isMultiSelectMode = false
+                selectedFilePaths.clear()
             }
         )
     }

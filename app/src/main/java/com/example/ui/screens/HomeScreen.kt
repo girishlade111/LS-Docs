@@ -28,11 +28,8 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
@@ -81,12 +78,16 @@ import com.example.data.model.DocumentFileType
 import com.example.data.model.DocumentSortOption
 import com.example.data.model.sortDocuments
 import com.example.data.model.sortFiles
+import com.example.data.database.FolderRecord
 import com.example.ui.components.CategoryChip
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.ChipSize
+import com.example.ui.components.CreateFolderDialog
 import com.example.ui.components.DocumentSortMenu
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
+import com.example.ui.components.MoveToFolderDialog
+import com.example.ui.components.parseHexColor
 import com.example.ui.theme.DensityGreen
 import com.example.ui.theme.Purple40
 import com.example.ui.theme.PurpleDark
@@ -115,10 +116,38 @@ fun HomeScreen(
     val recentDocs by viewModel.recentDocuments.collectAsState()
     val sampleFiles by viewModel.sampleFiles.collectAsState()
     val allMetadata by viewModel.allDocumentMetadata.collectAsState()
+    val folders by viewModel.folders.collectAsState()
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
+    var docToMoveToFolder by remember { mutableStateOf<DocumentRecord?>(null) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
     var selectedRecentCategory by remember { mutableStateOf<String?>(null) }
     var selectedSortOption by remember { mutableStateOf(DocumentSortOption.DEFAULT) }
+
+    if (showCreateFolderDialog) {
+        CreateFolderDialog(
+            onDismiss = { showCreateFolderDialog = false },
+            onConfirm = { name, desc, colorHex ->
+                viewModel.createFolder(name, desc, colorHex)
+                showCreateFolderDialog = false
+            }
+        )
+    }
+
+    if (docToMoveToFolder != null) {
+        MoveToFolderDialog(
+            folders = folders,
+            currentFolderId = docToMoveToFolder?.folderId,
+            onDismiss = { docToMoveToFolder = null },
+            onCreateNewFolder = { showCreateFolderDialog = true },
+            onFolderSelected = { fId, fName ->
+                docToMoveToFolder?.let { doc ->
+                    viewModel.moveDocumentToFolder(doc.uriString, fId, fName)
+                }
+                docToMoveToFolder = null
+            }
+        )
+    }
 
     if (docToCategorize != null) {
         CategoryPickerDialog(
@@ -801,11 +830,17 @@ fun HomeScreen(
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     filteredRecentDocs.take(10).forEach { doc ->
+                        val docFolder = folders.find { it.id == doc.folderId }
                         DocumentRowItem(
                             fileName = doc.fileName,
                             fileType = doc.extension.uppercase(),
                             progress = doc.readingProgress,
                             category = doc.category.takeIf { it.isNotBlank() },
+                            folderName = docFolder?.name,
+                            folderColorHex = docFolder?.colorHex,
+                            onFolderClick = {
+                                docToMoveToFolder = doc
+                            },
                             onCategoryClick = {
                                 docToCategorize = doc
                             },
@@ -983,6 +1018,9 @@ fun DocumentRowItem(
     fileType: String,
     progress: Float,
     category: String? = null,
+    folderName: String? = null,
+    folderColorHex: String? = null,
+    onFolderClick: (() -> Unit)? = null,
     onCategoryClick: (() -> Unit)? = null,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null
@@ -1042,6 +1080,22 @@ fun DocumentRowItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    if (!folderName.isNullOrBlank()) {
+                        val fColor = parseHexColor(folderColorHex ?: "#6750A4")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(fColor.copy(alpha = 0.15f))
+                                .clickable(enabled = onFolderClick != null) { onFolderClick?.invoke() }
+                                .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                        ) {
+                            Icon(Icons.Default.Folder, contentDescription = null, tint = fColor, modifier = Modifier.size(9.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(folderName, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = fColor)
+                        }
+                    }
+
                     if (!category.isNullOrBlank()) {
                         CategoryChip(
                             category = category,
@@ -1068,6 +1122,17 @@ fun DocumentRowItem(
                             .clip(CircleShape),
                         color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+
+            if (onFolderClick != null) {
+                IconButton(onClick = onFolderClick) {
+                    Icon(
+                        imageVector = Icons.Default.DriveFileMove,
+                        contentDescription = "Move to Folder",
+                        tint = if (!folderName.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
