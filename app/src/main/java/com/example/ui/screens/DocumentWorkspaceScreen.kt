@@ -82,7 +82,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.filled.Label
 import com.example.data.database.DocumentMetadataRecord
+import com.example.data.model.DocumentCategory
 import com.example.data.model.DocumentFileType
 import com.example.data.model.OpenTab
 import com.example.data.util.CodeSyntaxHighlighter
@@ -90,6 +94,9 @@ import com.example.data.util.CsvParser
 import com.example.data.util.MarkdownBlock
 import com.example.data.util.MarkdownParser
 import com.example.data.util.StructuredDataParser
+import com.example.ui.components.CategoryChip
+import com.example.ui.components.CategoryPickerDialog
+import com.example.ui.components.ChipSize
 import com.example.ui.components.HighDensityBadge
 import com.example.ui.components.HighDensityCard
 import com.example.ui.viewmodel.MainViewModel

@@ -299,23 +299,21 @@ fun BrowseScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Tag Filters
+            // Category / Label Filters
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(availableTags) { tag ->
                     val isSelected = (selectedTagFilter == tag) || (selectedTagFilter == null && tag == "All")
-                    FilterChip(
-                        selected = isSelected,
+                    CategoryChip(
+                        category = if (tag == "All") null else tag,
+                        isSelected = isSelected,
+                        size = ChipSize.Small,
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             selectedTagFilter = if (tag == "All") null else tag
-                        },
-                        label = { Text("#$tag", fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                        leadingIcon = if (isSelected) {
-                            { Icon(Icons.Default.Tag, contentDescription = null, modifier = Modifier.size(12.dp)) }
-                        } else null
+                        }
                     )
                 }
             }
@@ -399,6 +397,7 @@ fun BrowseScreen(
                     ) {
                         items(filteredFiles) { file ->
                             val isSelected = selectedFilePaths.contains(file.path)
+                            val fileCat = docCategoryMap[file.uri.toString()]
                             HighDensityCard(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -442,12 +441,40 @@ fun BrowseScreen(
 
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(file.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text(
-                                            "${file.fileType.displayName} • ${(file.sizeBytes / 1024).coerceAtLeast(1)} KB",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        ) {
+                                            Text(
+                                                "${file.fileType.displayName} • ${(file.sizeBytes / 1024).coerceAtLeast(1)} KB",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            if (!fileCat.isNullOrBlank()) {
+                                                CategoryChip(
+                                                    category = fileCat,
+                                                    size = ChipSize.Small,
+                                                    onClick = {
+                                                        fileToCategorize = file
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    IconButton(onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        fileToCategorize = file
+                                    }) {
+                                        Icon(
+                                            Icons.Default.Label,
+                                            contentDescription = "Label Document",
+                                            tint = if (!fileCat.isNullOrBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
+
                                     IconButton(onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         selectedFileForDetails = file
@@ -563,6 +590,7 @@ fun BrowseScreen(
     // File Details Modal Bottom Sheet
     if (showDetailsSheet && selectedFileForDetails != null) {
         val file = selectedFileForDetails!!
+        val currentCategory = docCategoryMap[file.uri.toString()]
         ModalBottomSheet(
             onDismissRequest = { showDetailsSheet = false },
             sheetState = rememberModalBottomSheetState()
@@ -583,6 +611,30 @@ fun BrowseScreen(
                 InfoItem("MIME Type", file.mimeType)
                 InfoItem("Path", file.path)
                 InfoItem("Read Only", if (file.isReadOnly) "Yes" else "No")
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("DOCUMENT CATEGORY / LABEL", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CategoryChip(
+                        category = currentCategory,
+                        size = ChipSize.Large,
+                        onClick = {
+                            fileToCategorize = file
+                            showDetailsSheet = false
+                        }
+                    )
+                    TextButton(onClick = {
+                        fileToCategorize = file
+                        showDetailsSheet = false
+                    }) {
+                        Text(if (currentCategory.isNullOrBlank()) "Set Category" else "Change")
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
