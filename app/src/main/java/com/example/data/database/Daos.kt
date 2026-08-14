@@ -24,6 +24,12 @@ interface DocumentDao {
     @Query("SELECT * FROM document_records WHERE uriString = :uri LIMIT 1")
     suspend fun getDocumentByUri(uri: String): DocumentRecord?
 
+    @Query("SELECT * FROM document_records WHERE category = :category AND isPrivate = 0 ORDER BY lastOpenedTimestamp DESC")
+    fun getDocumentsByCategory(category: String): Flow<List<DocumentRecord>>
+
+    @Query("UPDATE document_records SET category = :category WHERE uriString = :uri")
+    suspend fun updateDocumentCategory(uri: String, category: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateDocument(doc: DocumentRecord)
 
@@ -116,6 +122,9 @@ interface DocumentMetadataDao {
 
     @Query("UPDATE document_metadata SET lastOpenedTimestamp = :timestamp WHERE uriString = :uri")
     suspend fun updateLastOpenedTimestamp(uri: String, timestamp: Long)
+
+    @Query("UPDATE document_metadata SET category = :category WHERE uriString = :uri")
+    suspend fun updateCategory(uri: String, category: String)
 
     @Query("DELETE FROM document_metadata WHERE uriString = :uri")
     suspend fun deleteMetadataByUri(uri: String)

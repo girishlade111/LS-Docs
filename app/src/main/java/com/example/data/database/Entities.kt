@@ -21,7 +21,9 @@ data class DocumentRecord(
     val isFavorite: Boolean = false,
     val isPrivate: Boolean = false,
     val encryptedContent: String = "",
-    val isEncryptedWithAes256: Boolean = false
+    val isEncryptedWithAes256: Boolean = false,
+    val category: String = "",
+    val tags: String = ""
 )
 
 @Entity(tableName = "bookmark_records")
@@ -82,7 +84,9 @@ data class DocumentMetadataRecord(
     val characterCount: Int = 0,
     val lineCount: Int = 0,
     val author: String = "",
-    val description: String = ""
+    val description: String = "",
+    val category: String = "",
+    val tags: String = ""
 )
 
 typealias DocumentMetadataEntity = DocumentMetadataRecord
