@@ -8,6 +8,7 @@ import com.example.data.database.BookmarkRecord
 import com.example.data.database.ConversionRecord
 import com.example.data.database.DocumentMetadataRecord
 import com.example.data.database.DocumentRecord
+import com.example.data.database.FolderRecord
 import com.example.data.database.OcrRecord
 import com.example.data.model.AppSettings
 import com.example.data.model.DocumentFileType
@@ -30,6 +31,7 @@ class DocumentRepository(private val context: Context) {
     private val ocrDao = db.ocrDao()
     private val conversionDao = db.conversionDao()
     private val metadataDao = db.documentMetadataDao()
+    private val folderDao = db.folderDao()
 
     val allRecentDocuments: Flow<List<DocumentRecord>> = docDao.getAllRecentDocuments()
     val pinnedDocuments: Flow<List<DocumentRecord>> = docDao.getPinnedDocuments()
@@ -40,6 +42,7 @@ class DocumentRepository(private val context: Context) {
     val allOcrRecords: Flow<List<OcrRecord>> = ocrDao.getAllOcrRecords()
     val allConversions: Flow<List<ConversionRecord>> = conversionDao.getAllConversions()
     val allDocumentMetadata: Flow<List<DocumentMetadataRecord>> = metadataDao.getAllMetadata()
+    val allFolders: Flow<List<FolderRecord>> = folderDao.getAllFolders()
 
     // Active open tabs state
     private val _openTabs = MutableStateFlow<List<OpenTab>>(emptyList())
@@ -408,5 +411,45 @@ class DocumentRepository(private val context: Context) {
             docDao.insertOrUpdateDocument(updatedRecord)
             return true
         }
+    }
+
+    suspend fun createFolder(name: String, description: String = "", colorHex: String = "#6750A4"): FolderRecord {
+        val folder = FolderRecord(
+            name = name.trim(),
+            description = description.trim(),
+            colorHex = colorHex
+        )
+        folderDao.insertOrUpdateFolder(folder)
+        return folder
+    }
+
+    suspend fun updateFolder(folder: FolderRecord) {
+        folderDao.insertOrUpdateFolder(folder)
+    }
+
+    suspend fun deleteFolder(folderId: String) {
+        docDao.unassignDocumentsFromFolder(folderId)
+        folderDao.deleteFolderById(folderId)
+    }
+
+    suspend fun togglePinFolder(folderId: String) {
+        folderDao.togglePinFolder(folderId)
+    }
+
+    suspend fun moveDocumentToFolder(uriString: String, folderId: String, folderName: String) {
+        docDao.moveDocumentToFolder(uriString, folderId, folderName)
+        metadataDao.getMetadataForUri(uriString)?.let { meta ->
+            metadataDao.insertOrUpdateMetadata(meta.copy(category = folderName))
+        }
+    }
+
+    suspend fun moveMultipleDocumentsToFolder(uriStrings: List<String>, folderId: String, folderName: String) {
+        uriStrings.forEach { uri ->
+            moveDocumentToFolder(uri, folderId, folderName)
+        }
+    }
+
+    suspend fun removeDocumentFromFolder(uriString: String) {
+        docDao.moveDocumentToFolder(uriString, "", "")
     }
 }

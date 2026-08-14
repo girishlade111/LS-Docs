@@ -12,9 +12,10 @@ import androidx.room.RoomDatabase
         AnnotationRecord::class,
         OcrRecord::class,
         ConversionRecord::class,
-        DocumentMetadataRecord::class
+        DocumentMetadataRecord::class,
+        FolderRecord::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ocrDao(): OcrDao
     abstract fun conversionDao(): ConversionDao
     abstract fun documentMetadataDao(): DocumentMetadataDao
+    abstract fun folderDao(): FolderDao
 
     companion object {
         @Volatile

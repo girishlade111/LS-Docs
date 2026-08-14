@@ -27,8 +27,17 @@ interface DocumentDao {
     @Query("SELECT * FROM document_records WHERE category = :category AND isPrivate = 0 ORDER BY lastOpenedTimestamp DESC")
     fun getDocumentsByCategory(category: String): Flow<List<DocumentRecord>>
 
+    @Query("SELECT * FROM document_records WHERE folderId = :folderId AND isPrivate = 0 ORDER BY lastOpenedTimestamp DESC")
+    fun getDocumentsByFolderId(folderId: String): Flow<List<DocumentRecord>>
+
     @Query("UPDATE document_records SET category = :category WHERE uriString = :uri")
     suspend fun updateDocumentCategory(uri: String, category: String)
+
+    @Query("UPDATE document_records SET folderId = :folderId, folderName = :folderName WHERE uriString = :uri")
+    suspend fun moveDocumentToFolder(uri: String, folderId: String, folderName: String)
+
+    @Query("UPDATE document_records SET folderId = '', folderName = '' WHERE folderId = :folderId")
+    suspend fun unassignDocumentsFromFolder(folderId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateDocument(doc: DocumentRecord)
@@ -38,6 +47,27 @@ interface DocumentDao {
 
     @Query("DELETE FROM document_records")
     suspend fun clearAllRecentDocuments()
+}
+
+@Dao
+interface FolderDao {
+    @Query("SELECT * FROM folder_records ORDER BY isPinned DESC, creationTimestamp ASC")
+    fun getAllFolders(): Flow<List<FolderRecord>>
+
+    @Query("SELECT * FROM folder_records WHERE id = :id LIMIT 1")
+    suspend fun getFolderById(id: String): FolderRecord?
+
+    @Query("SELECT * FROM folder_records WHERE name = :name LIMIT 1")
+    suspend fun getFolderByName(name: String): FolderRecord?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateFolder(folder: FolderRecord)
+
+    @Query("UPDATE folder_records SET isPinned = NOT isPinned WHERE id = :id")
+    suspend fun togglePinFolder(id: String)
+
+    @Query("DELETE FROM folder_records WHERE id = :id")
+    suspend fun deleteFolderById(id: String)
 }
 
 @Dao

@@ -23,7 +23,20 @@ data class DocumentRecord(
     val encryptedContent: String = "",
     val isEncryptedWithAes256: Boolean = false,
     val category: String = "",
-    val tags: String = ""
+    val tags: String = "",
+    val folderId: String = "",
+    val folderName: String = ""
+)
+
+@Entity(tableName = "folder_records")
+data class FolderRecord(
+    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String,
+    val description: String = "",
+    val colorHex: String = "#6750A4",
+    val iconName: String = "folder",
+    val creationTimestamp: Long = System.currentTimeMillis(),
+    val isPinned: Boolean = false
 )
 
 @Entity(tableName = "bookmark_records")
