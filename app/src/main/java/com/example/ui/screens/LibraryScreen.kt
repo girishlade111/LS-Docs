@@ -1,3 +1,5 @@
+package com.example.ui.screens
+
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -270,19 +272,45 @@ fun LibraryScreen(
 
         when (selectedTab) {
             0 -> {
-                // Categories Tab
-                val categorizedDocs = remember(recentDocs, selectedCategoryFilter, selectedSortOption, allMetadata) {
-                    val filtered = if (selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All") {
-                        recentDocs
-                    } else {
-                        recentDocs.filter { it.category.equals(selectedCategoryFilter, ignoreCase = true) }
-                    }
-                    filtered.sortDocuments(selectedSortOption, allMetadata)
-                }
-
-                val categoryCounts = remember(recentDocs) {
+                // Folders & Categories Tab
+                val folderDocCounts = remember(recentDocs) {
                     val map = mutableMapOf<String, Int>()
                     recentDocs.forEach { doc ->
+                        if (doc.folderId.isNotBlank()) {
+                            map[doc.folderId] = (map[doc.folderId] ?: 0) + 1
+                        }
+                    }
+                    map
+                }
+
+                val activeFolder = remember(folders, selectedFolderId) {
+                    folders.find { it.id == selectedFolderId }
+                }
+
+                val displayedDocs = remember(recentDocs, selectedFolderId, selectedCategoryFilter, selectedSortOption, allMetadata, activeFolder) {
+                    val filteredByFolder = if (selectedFolderId != null) {
+                        recentDocs.filter { it.folderId == selectedFolderId || (activeFolder != null && it.folderName.equals(activeFolder.name, ignoreCase = true)) }
+                    } else {
+                        recentDocs
+                    }
+
+                    val filteredByCategory = if (selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All") {
+                        filteredByFolder
+                    } else {
+                        filteredByFolder.filter { it.category.equals(selectedCategoryFilter, ignoreCase = true) }
+                    }
+
+                    filteredByCategory.sortDocuments(selectedSortOption, allMetadata)
+                }
+
+                val categoryCounts = remember(recentDocs, selectedFolderId, activeFolder) {
+                    val baseList = if (selectedFolderId != null) {
+                        recentDocs.filter { it.folderId == selectedFolderId || (activeFolder != null && it.folderName.equals(activeFolder.name, ignoreCase = true)) }
+                    } else {
+                        recentDocs
+                    }
+                    val map = mutableMapOf<String, Int>()
+                    baseList.forEach { doc ->
                         val cat = if (doc.category.isNotBlank()) doc.category else "Uncategorized"
                         map[cat] = (map[cat] ?: 0) + 1
                     }
@@ -291,26 +319,183 @@ fun LibraryScreen(
 
                 val allCategories = remember { listOf("All") + DocumentCategory.getCategoryNames() }
 
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "DOCUMENT CATEGORIES & LABELS",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 0.8.sp
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (activeFolder != null) {
+                        // Inside Folder View Header Banner
+                        val folderColor = parseHexColor(activeFolder.colorHex)
+                        HighDensityCard(
+                            shape = RoundedCornerShape(20.dp),
+                            backgroundColor = folderColor.copy(alpha = 0.12f),
+                            borderColor = folderColor.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    ) {
+                                        IconButton(
+                                            onClick = { selectedFolderId = null },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = "Back to All Folders",
+                                                tint = folderColor
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(folderColor.copy(alpha = 0.25f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Folder,
+                                                contentDescription = null,
+                                                tint = folderColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = activeFolder.name,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 16.sp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (activeFolder.description.isNotBlank()) {
+                                                Text(
+                                                    text = activeFolder.description,
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
 
-                    // Horizontal Category Chips Filter
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(allCategories) { catName ->
-                            val isSelected = (selectedCategoryFilter == null && catName == "All") || (selectedCategoryFilter == catName)
-                            val count = if (catName == "All") recentDocs.size else (categoryCounts[catName] ?: 0)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = { folderToEdit = activeFolder },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Edit Folder", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                        }
+                                        IconButton(
+                                            onClick = { folderToDelete = activeFolder },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete Folder", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Custom Folders Overview Section
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "CUSTOM FOLDERS (${folders.size})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 0.8.sp
+                            )
+                            TextButton(
+                                onClick = { showCreateFolderDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Folder", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (folders.isEmpty()) {
+                            HighDensityCard(
+                                shape = RoundedCornerShape(18.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showCreateFolderDialog = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(14.dp)
+                                        .fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.CreateNewFolder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Create Your First Folder", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Group documents into custom colored folders", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        } else {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(folders) { folder ->
+                                    val count = folderDocCounts[folder.id] ?: 0
+                                    FolderCard(
+                                        folder = folder,
+                                        documentCount = count,
+                                        isSelected = selectedFolderId == folder.id,
+                                        onClick = {
+                                            selectedFolderId = if (selectedFolderId == folder.id) null else folder.id
+                                        },
+                                        onEdit = { folderToEdit = folder },
+                                        onDelete = { folderToDelete = folder },
+                                        onTogglePin = { viewModel.togglePinFolder(folder.id) },
+                                        modifier = Modifier.width(160.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = "CATEGORY LABELS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 0.8.sp
+                        )
+
+                        // Horizontal Category Chips Filter
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(allCategories) { catName ->
+                                val isSelected = (selectedCategoryFilter == null && catName == "All") || (selectedCategoryFilter == catName)
                                 CategoryChip(
                                     category = if (catName == "All") null else catName,
                                     isSelected = isSelected,
@@ -324,9 +509,12 @@ fun LibraryScreen(
                     }
 
                     if (recentDocs.isEmpty()) {
-                        EmptyLibraryState("No documents tracked yet. Open files in the Document Workspace to categorize them!")
-                    } else if (categorizedDocs.isEmpty()) {
-                        EmptyLibraryState("No documents found with category \"$selectedCategoryFilter\". Label documents to organize them here!")
+                        EmptyLibraryState("No documents tracked yet. Open files in the Document Workspace to organize them into folders!")
+                    } else if (displayedDocs.isEmpty()) {
+                        EmptyLibraryState(
+                            if (activeFolder != null) "No documents currently in folder \"${activeFolder.name}\". Tap the Folder icon on any document to move it here!"
+                            else "No documents found matching category \"$selectedCategoryFilter\"."
+                        )
                     } else {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -334,7 +522,7 @@ fun LibraryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "${categorizedDocs.size} documents in ${selectedCategoryFilter ?: "All Categories"}",
+                                text = "${displayedDocs.size} ${if (displayedDocs.size == 1) "document" else "documents"} ${if (activeFolder != null) "in ${activeFolder.name}" else if (selectedCategoryFilter != null) "in $selectedCategoryFilter" else "in Library"}",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -345,8 +533,12 @@ fun LibraryScreen(
                             )
                         }
 
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(categorizedDocs) { doc ->
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(displayedDocs) { doc ->
+                                val docFolder = folders.find { it.id == doc.folderId }
                                 HighDensityCard(
                                     onClick = {
                                         try {
@@ -400,6 +592,21 @@ fun LibraryScreen(
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
+                                                if (docFolder != null) {
+                                                    val fColor = parseHexColor(docFolder.colorHex)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(fColor.copy(alpha = 0.15f))
+                                                            .clickable { docToMoveToFolder = doc }
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Folder, contentDescription = null, tint = fColor, modifier = Modifier.size(10.dp))
+                                                        Spacer(modifier = Modifier.width(3.dp))
+                                                        Text(docFolder.name, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = fColor)
+                                                    }
+                                                }
                                                 if (doc.category.isNotBlank()) {
                                                     CategoryChip(
                                                         category = doc.category,
@@ -410,15 +617,27 @@ fun LibraryScreen(
                                             }
                                         }
 
-                                        IconButton(onClick = { docToCategorize = doc }) {
+                                        // Move to Folder Action
+                                        IconButton(onClick = { docToMoveToFolder = doc }) {
                                             Icon(
-                                                imageVector = Icons.Default.Label,
-                                                contentDescription = "Change Category",
-                                                tint = MaterialTheme.colorScheme.primary,
+                                                imageVector = Icons.Default.DriveFileMove,
+                                                contentDescription = "Move to Folder",
+                                                tint = if (doc.folderId.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
 
+                                        // Category Label Action
+                                        IconButton(onClick = { docToCategorize = doc }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Label,
+                                                contentDescription = "Change Category",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+
+                                        // Delete Record Action
                                         IconButton(onClick = { docToDelete = doc }) {
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
