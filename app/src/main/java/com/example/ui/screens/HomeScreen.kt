@@ -114,6 +114,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val recentDocs by viewModel.recentDocuments.collectAsState()
     val sampleFiles by viewModel.sampleFiles.collectAsState()
+    val allMetadata by viewModel.allDocumentMetadata.collectAsState()
     var docToDelete by remember { mutableStateOf<DocumentRecord?>(null) }
     var docToCategorize by remember { mutableStateOf<DocumentRecord?>(null) }
     var selectedRecentCategory by remember { mutableStateOf<String?>(null) }
@@ -691,17 +692,17 @@ fun HomeScreen(
 
         // Recent / Sample Documents
         item {
-            val filteredRecentDocs = remember(recentDocs, selectedRecentCategory, selectedSortOption) {
+            val filteredRecentDocs = remember(recentDocs, selectedRecentCategory, selectedSortOption, allMetadata) {
                 val filtered = if (selectedRecentCategory.isNullOrBlank() || selectedRecentCategory == "All") {
                     recentDocs
                 } else {
                     recentDocs.filter { it.category.equals(selectedRecentCategory, ignoreCase = true) }
                 }
-                filtered.sortDocuments(selectedSortOption)
+                filtered.sortDocuments(selectedSortOption, allMetadata)
             }
 
-            val sortedSampleFiles = remember(sampleFiles, recentDocs, selectedSortOption) {
-                sampleFiles.sortFiles(selectedSortOption, recentDocs)
+            val sortedSampleFiles = remember(sampleFiles, recentDocs, selectedSortOption, allMetadata) {
+                sampleFiles.sortFiles(selectedSortOption, recentDocs, allMetadata)
             }
 
             Row(

@@ -162,7 +162,7 @@ fun BrowseScreen(
         }
     }
 
-    val filteredFiles = remember(sampleFiles, searchQuery, selectedTagFilter, docCategoryMap, selectedSortOption, recentDocs) {
+    val filteredFiles = remember(sampleFiles, searchQuery, selectedTagFilter, docCategoryMap, selectedSortOption, recentDocs, metadataList) {
         sampleFiles.filter { file ->
             val matchesFilename = file.name.contains(searchQuery, ignoreCase = true) || file.extension.contains(searchQuery, ignoreCase = true)
             val fileContent = try { com.example.data.util.FileHelper.readTextFromUri(context, file.uri) } catch (e: Exception) { "" }
@@ -173,7 +173,7 @@ fun BrowseScreen(
                     fileCat.equals(selectedTagFilter, ignoreCase = true) ||
                     file.path.contains(selectedTagFilter!!, ignoreCase = true)
             matchesSearch && matchesTag
-        }.sortFiles(selectedSortOption, recentDocs)
+        }.sortFiles(selectedSortOption, recentDocs, metadataList)
     }
 
     Column(

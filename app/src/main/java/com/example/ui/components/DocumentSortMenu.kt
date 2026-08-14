@@ -8,16 +8,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.SortByAlpha
@@ -128,7 +127,7 @@ fun DocumentSortMenu(
         ) {
             Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                 Text(
-                    text = "SORT BY",
+                    text = "ORDER DOCUMENTS BY",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -136,25 +135,26 @@ fun DocumentSortMenu(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                 )
 
-                // Date Added Options
+                // 1. Last Opened
                 SortMenuItem(
-                    label = "Date Added (Newest)",
+                    label = "Last Opened",
                     icon = Icons.Default.History,
-                    isSelected = selectedOption == DocumentSortOption.DATE_ADDED_DESC,
+                    isSelected = selectedOption == DocumentSortOption.LAST_OPENED,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onOptionSelected(DocumentSortOption.DATE_ADDED_DESC)
+                        onOptionSelected(DocumentSortOption.LAST_OPENED)
                         expanded = false
                     }
                 )
 
+                // 2. Date Added
                 SortMenuItem(
-                    label = "Date Added (Oldest)",
-                    icon = Icons.Default.AccessTime,
-                    isSelected = selectedOption == DocumentSortOption.DATE_ADDED_ASC,
+                    label = "Date Added",
+                    icon = Icons.Default.CalendarToday,
+                    isSelected = selectedOption == DocumentSortOption.DATE_ADDED,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onOptionSelected(DocumentSortOption.DATE_ADDED_ASC)
+                        onOptionSelected(DocumentSortOption.DATE_ADDED)
                         expanded = false
                     }
                 )
@@ -164,27 +164,28 @@ fun DocumentSortMenu(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
 
-                // Name Options
+                // 3. Title (A-Z)
                 SortMenuItem(
-                    label = "Name (A to Z)",
+                    label = "Title (A-Z)",
                     icon = Icons.Default.SortByAlpha,
                     trailingArrow = Icons.Default.ArrowDownward,
-                    isSelected = selectedOption == DocumentSortOption.NAME_ASC,
+                    isSelected = selectedOption == DocumentSortOption.TITLE_AZ,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onOptionSelected(DocumentSortOption.NAME_ASC)
+                        onOptionSelected(DocumentSortOption.TITLE_AZ)
                         expanded = false
                     }
                 )
 
+                // 4. Title (Z-A)
                 SortMenuItem(
-                    label = "Name (Z to A)",
+                    label = "Title (Z-A)",
                     icon = Icons.Default.SortByAlpha,
                     trailingArrow = Icons.Default.ArrowUpward,
-                    isSelected = selectedOption == DocumentSortOption.NAME_DESC,
+                    isSelected = selectedOption == DocumentSortOption.TITLE_ZA,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onOptionSelected(DocumentSortOption.NAME_DESC)
+                        onOptionSelected(DocumentSortOption.TITLE_ZA)
                         expanded = false
                     }
                 )

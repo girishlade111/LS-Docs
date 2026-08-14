@@ -74,6 +74,7 @@ fun LibraryScreen(
     val bookmarks by viewModel.bookmarks.collectAsState()
     val annotations by viewModel.annotations.collectAsState()
     val privateDocs by viewModel.privateDocuments.collectAsState()
+    val allMetadata by viewModel.allDocumentMetadata.collectAsState()
     val isVaultUnlocked by viewModel.isPrivateVaultUnlocked.collectAsState()
 
     var selectedTab by remember { mutableStateOf(0) }
@@ -169,13 +170,13 @@ fun LibraryScreen(
         when (selectedTab) {
             0 -> {
                 // Categories Tab
-                val categorizedDocs = remember(recentDocs, selectedCategoryFilter, selectedSortOption) {
+                val categorizedDocs = remember(recentDocs, selectedCategoryFilter, selectedSortOption, allMetadata) {
                     val filtered = if (selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All") {
                         recentDocs
                     } else {
                         recentDocs.filter { it.category.equals(selectedCategoryFilter, ignoreCase = true) }
                     }
-                    filtered.sortDocuments(selectedSortOption)
+                    filtered.sortDocuments(selectedSortOption, allMetadata)
                 }
 
                 val categoryCounts = remember(recentDocs) {
@@ -428,8 +429,8 @@ fun LibraryScreen(
                         }
                     }
                 } else {
-                    val sortedPrivateDocs = remember(privateDocs, selectedSortOption) {
-                        privateDocs.sortDocuments(selectedSortOption)
+                    val sortedPrivateDocs = remember(privateDocs, selectedSortOption, allMetadata) {
+                        privateDocs.sortDocuments(selectedSortOption, allMetadata)
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
