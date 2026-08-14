@@ -173,7 +173,7 @@ fun BrowseScreen(
     var activeTab by remember { mutableStateOf(0) }
 
     val availableTags = remember {
-        listOf("All") + DocumentCategory.getCategoryNames()
+        listOf("All", "★ Favorites") + DocumentCategory.getCategoryNames()
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -202,9 +202,15 @@ fun BrowseScreen(
             val matchesContent = fileContent.contains(searchQuery, ignoreCase = true)
             val matchesSearch = searchQuery.isBlank() || matchesFilename || matchesContent
             val fileCat = docCategoryMap[file.uri.toString()] ?: ""
-            val matchesTag = selectedTagFilter == null || selectedTagFilter == "All" ||
-                    fileCat.equals(selectedTagFilter, ignoreCase = true) ||
-                    file.path.contains(selectedTagFilter!!, ignoreCase = true)
+            val matchesTag = when {
+                selectedTagFilter == null || selectedTagFilter == "All" -> true
+                selectedTagFilter == "Favorites" || selectedTagFilter == "★ Favorites" -> {
+                    recentDocs.any { r -> r.uriString == file.uri.toString() && (r.isFavorite || r.isPinned) }
+                }
+                else -> {
+                    fileCat.equals(selectedTagFilter, ignoreCase = true) || file.path.contains(selectedTagFilter!!, ignoreCase = true)
+                }
+            }
             matchesSearch && matchesTag
         }.sortFiles(selectedSortOption, recentDocs, metadataList)
     }
@@ -507,6 +513,19 @@ fun BrowseScreen(
                                                 )
                                             }
                                         }
+                                    }
+
+                                    val isFav = recentDocs.any { it.uriString == file.uri.toString() && it.isFavorite }
+                                    IconButton(onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        viewModel.toggleFavorite(file.uri.toString())
+                                    }) {
+                                        Icon(
+                                            imageVector = if (isFav) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                            contentDescription = if (isFav) "Favorited" else "Favorite",
+                                            tint = if (isFav) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
 
                                     IconButton(onClick = {
