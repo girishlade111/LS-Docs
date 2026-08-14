@@ -146,12 +146,13 @@ fun LibraryScreen(
         when (selectedTab) {
             0 -> {
                 // Categories Tab
-                val categorizedDocs = remember(recentDocs, selectedCategoryFilter) {
-                    if (selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All") {
+                val categorizedDocs = remember(recentDocs, selectedCategoryFilter, selectedSortOption) {
+                    val filtered = if (selectedCategoryFilter.isNullOrBlank() || selectedCategoryFilter == "All") {
                         recentDocs
                     } else {
                         recentDocs.filter { it.category.equals(selectedCategoryFilter, ignoreCase = true) }
                     }
+                    filtered.sortDocuments(selectedSortOption)
                 }
 
                 val categoryCounts = remember(recentDocs) {
@@ -202,12 +203,22 @@ fun LibraryScreen(
                     } else if (categorizedDocs.isEmpty()) {
                         EmptyLibraryState("No documents found with category \"$selectedCategoryFilter\". Label documents to organize them here!")
                     } else {
-                        Text(
-                            text = "${categorizedDocs.size} documents in ${selectedCategoryFilter ?: "All Categories"}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${categorizedDocs.size} documents in ${selectedCategoryFilter ?: "All Categories"}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            DocumentSortMenu(
+                                selectedOption = selectedSortOption,
+                                onOptionSelected = { selectedSortOption = it }
+                            )
+                        }
 
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(categorizedDocs) { doc ->
@@ -385,6 +396,10 @@ fun LibraryScreen(
                         }
                     }
                 } else {
+                    val sortedPrivateDocs = remember(privateDocs, selectedSortOption) {
+                        privateDocs.sortDocuments(selectedSortOption)
+                    }
+
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -392,22 +407,31 @@ fun LibraryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("PROTECTED PRIVATE DOCUMENTS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Button(
-                                onClick = {
-                                    viewModel.lockPrivateVault()
-                                    viewModel.showToast("Private vault locked")
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                modifier = Modifier.height(44.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = "Lock Vault",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                DocumentSortMenu(
+                                    selectedOption = selectedSortOption,
+                                    onOptionSelected = { selectedSortOption = it }
                                 )
+                                Button(
+                                    onClick = {
+                                        viewModel.lockPrivateVault()
+                                        viewModel.showToast("Private vault locked")
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                    modifier = Modifier.height(40.dp)
+                                ) {
+                                    Text(
+                                        text = "Lock Vault",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
 
@@ -415,7 +439,7 @@ fun LibraryScreen(
                             EmptyLibraryState("Private vault is empty. Move files into private storage in Settings or File Inspector.")
                         } else {
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(privateDocs) { doc ->
+                                items(sortedPrivateDocs) { doc ->
                                     HighDensityCard(shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                                         Row(
                                             modifier = Modifier
