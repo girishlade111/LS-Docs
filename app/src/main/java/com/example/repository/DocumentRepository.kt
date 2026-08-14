@@ -452,4 +452,54 @@ class DocumentRepository(private val context: Context) {
     suspend fun removeDocumentFromFolder(uriString: String) {
         docDao.moveDocumentToFolder(uriString, "", "")
     }
+
+    suspend fun toggleDocumentFavorite(uri: Uri): Boolean {
+        val uriString = uri.toString()
+        val record = docDao.getDocumentByUri(uriString)
+        if (record != null) {
+            val newFav = !record.isFavorite
+            docDao.insertOrUpdateDocument(record.copy(isFavorite = newFav))
+            return newFav
+        } else {
+            val details = FileHelper.getFileDetails(context, uri)
+            val newRecord = DocumentRecord(
+                uriString = uriString,
+                title = details.name,
+                fileName = details.name,
+                path = details.path,
+                type = details.fileType.name,
+                mimeType = details.fileType.mimeType,
+                extension = details.extension,
+                fileSize = details.sizeBytes,
+                isFavorite = true
+            )
+            docDao.insertOrUpdateDocument(newRecord)
+            return true
+        }
+    }
+
+    suspend fun toggleDocumentPin(uri: Uri): Boolean {
+        val uriString = uri.toString()
+        val record = docDao.getDocumentByUri(uriString)
+        if (record != null) {
+            val newPinned = !record.isPinned
+            docDao.insertOrUpdateDocument(record.copy(isPinned = newPinned))
+            return newPinned
+        } else {
+            val details = FileHelper.getFileDetails(context, uri)
+            val newRecord = DocumentRecord(
+                uriString = uriString,
+                title = details.name,
+                fileName = details.name,
+                path = details.path,
+                type = details.fileType.name,
+                mimeType = details.fileType.mimeType,
+                extension = details.extension,
+                fileSize = details.sizeBytes,
+                isPinned = true
+            )
+            docDao.insertOrUpdateDocument(newRecord)
+            return true
+        }
+    }
 }
